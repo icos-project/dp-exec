@@ -182,7 +182,11 @@ Finally, the `NIO_mac.cfg` file needs to be updated with any specific features o
 ## Support
 For support please send and e-mail to support-compss@bsc.es
 
-(c) Workflows and Distributed Computing Group (WDC) - Department of Computer Science (CS) - Barcelona Supercomputing Center (BSC)
+# Legal
+The Parallel and Distributed Execution component is released under the Apache 2.0 license.
+Copyright © 2022-2024 Barcelona Supercomputing Center - Centro Nacional de Supercomputación. All rights reserved.
 
+
+This work has been partially funded by several grant programs. Find the complete list of funding entities, grants and programmes in the [ACKNOWLEDGMENTS](ACKNOWLEDGMENTS) file.
 
 

@@ -17,6 +17,7 @@
 package es.bsc.compss.components.impl;
 
 import es.bsc.compss.COMPSsConstants;
+import es.bsc.compss.comm.Comm;
 import es.bsc.compss.log.Loggers;
 import es.bsc.compss.scheduler.exceptions.ActionNotFoundException;
 import es.bsc.compss.scheduler.exceptions.BlockedActionException;
@@ -40,6 +41,7 @@ import es.bsc.compss.types.annotations.parameter.OnFailure;
 import es.bsc.compss.types.implementations.Implementation;
 import es.bsc.compss.types.parameter.Parameter;
 import es.bsc.compss.types.resources.DynamicMethodWorker;
+import es.bsc.compss.types.resources.MethodResourceDescription;
 import es.bsc.compss.types.resources.Resource;
 import es.bsc.compss.types.resources.Worker;
 import es.bsc.compss.types.resources.WorkerResourceDescription;
@@ -53,6 +55,7 @@ import es.bsc.compss.util.CoreManager;
 import es.bsc.compss.util.ErrorManager;
 import es.bsc.compss.util.ExternalAdaptationManager;
 import es.bsc.compss.util.JSONStateManager;
+import es.bsc.compss.util.OTelFacade;
 import es.bsc.compss.util.ResourceOptimizer;
 import es.bsc.compss.util.SchedulingOptimizer;
 import es.bsc.compss.util.Tracer;
@@ -149,6 +152,7 @@ public class TaskScheduler {
         } else {
             this.extAdaptationManager = null;
         }
+
     }
 
     /**
@@ -327,6 +331,7 @@ public class TaskScheduler {
             offVMsProfiles[coreId] = implProfiles;
         }
         this.offVMsProfiles = offVMsProfiles;
+        OTelFacade.updateCoreElements(newCoreCount);
         // Update resource schedulers
         for (ResourceScheduler<? extends WorkerResourceDescription> rs : workers.values()) {
             rs.updatedCoreElements(newCoreCount, jsm.getJSONForResource(rs.getResource()));
@@ -402,6 +407,9 @@ public class TaskScheduler {
         LOGGER.info("[TaskScheduler] Registering new AllocatableAction " + action);
         if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
             addToReady(action);
+        }
+        if (action.getCoreId() != null) {
+            OTelFacade.newTask(action.getCoreId());
         }
 
         Score actionScore = generateActionScore(action);
@@ -906,6 +914,9 @@ public class TaskScheduler {
 
     private <T extends WorkerResourceDescription> void increasedWorkerResources(ResourceScheduler<T> worker,
         ResourceUpdate<T> modification) {
+        if (worker.myWorker == Comm.getAppHost()) {
+            OTelFacade.updateNodeFeatures((MethodResourceDescription) worker.myWorker.getDescription());
+        }
 
         if (worker.getExecutableCores().isEmpty()) {
             // We no longer remove workers with empty executable cores since new core elements
@@ -931,6 +942,9 @@ public class TaskScheduler {
     @SuppressWarnings("unchecked")
     private <T extends WorkerResourceDescription> void reducedWorkerResources(ResourceScheduler<T> worker,
         PerformedReduction<T> modification) {
+        if (worker.myWorker == Comm.getAppHost()) {
+            OTelFacade.updateNodeFeatures((MethodResourceDescription) worker.myWorker.getDescription());
+        }
 
         // Update worker features
         // When a worker is reduced it never unblocks actions

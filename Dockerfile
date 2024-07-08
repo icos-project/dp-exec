@@ -1,8 +1,15 @@
 ARG DEBIAN_FRONTEND=noninteractive
-ARG BASE=base20
-ARG BASE_VERSION=230308-090438
 
-FROM compss/${BASE}_ci:${BASE_VERSION} as ci
+ARG BUILDER_BASE=base20
+ARG BUILDER_BASE_VERSION=230308-090438
+ARG AGENT_BASE=ubuntu
+ARG AGENT_BASE_VERSION=20.04
+
+FROM compss/${BUILDER_BASE}_ci:${BUILDER_BASE_VERSION} as builder_base
+FROM ${AGENT_BASE}:${AGENT_BASE_VERSION} as agent_base
+
+
+FROM builder_base as compss_fw
 ENV GRADLE_HOME /opt/gradle
 ENV PATH $PATH:/opt/gradle/bin
 
@@ -14,84 +21,51 @@ ENV LD_LIBRARY_PATH /opt/COMPSs/Bindings/bindings-common/lib:$LD_LIBRARY_PATH
 ENV COMPSS_HOME=/opt/COMPSs/
 
 # Install COMPSs
-RUN cd /framework && \
-    ./submodules_get.sh && \
-    #export EXTRAE_MPI_HEADERS=/usr/include/x86_64-linux-gnu/mpi && \
-    /framework/builders/buildlocal /opt/COMPSs && \
-    mv /root/.m2 /home/jenkins && \
-    chown -R jenkins: /framework && \
-    chown -R jenkins: /home/jenkins/ && \
-    python3 -m pip install --no-cache-dir rocrate==0.9.0
+WORKDIR /framework
+
+RUN ./submodules_get.sh && \
+    /framework/builders/buildlocal /opt/COMPSs -T -J -M -D -C
+
+WORKDIR /
 
 # Expose SSH port and run SSHD
 EXPOSE 22
 CMD ["/usr/sbin/sshd","-D"]
 
-FROM compss/${BASE}_all:${BASE_VERSION} as compss
 
-COPY --from=ci /opt/COMPSs /opt/COMPSs
-COPY --from=ci /etc/init.d/compss-monitor /etc/init.d/compss-monitor
-COPY --from=ci /etc/profile.d/compss.sh /etc/profile.d/compss.sh
+# COMPSs BASE IMAGE
+FROM agent_base as compss_agent
 
-#ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64/
-ENV PATH $PATH:/opt/COMPSs/Runtime/scripts/user:/opt/COMPSs/Bindings/c/bin:/opt/COMPSs/Runtime/scripts/utils
-ENV CLASSPATH $CLASSPATH:/opt/COMPSs/Runtime/compss-engine.jar
-ENV LD_LIBRARY_PATH /opt/COMPSs/Bindings/bindings-common/lib:$LD_LIBRARY_PATH
-ENV COMPSS_HOME=/opt/COMPSs/
+    LABEL maintainer="COMPSs Support <support-compss@bsc.es>" \
+        vendor="Barcelona Supercomputing Center (BSC)" \
+        url="http://compss.bsc.es"
 
-EXPOSE 22
-CMD ["/usr/sbin/sshd","-D"]
+    RUN apt-get update && \
+        apt-get install -y --no-install-recommends \
+            openjdk-8-jdk=8u412-ga-1~20.04.1 \
+            graphviz=2.42.2-3build2 \
+            xdg-utils=1.1.3-2ubuntu1.20.04.2 \
+            uuid-runtime=2.34-0.1ubuntu9.6 \
+            python3=3.8.2-0ubuntu2 \
+            curl=7.68.0-1ubuntu2.22 \
+            jq=1.6-1ubuntu0.20.04.1 && \
+        apt-get autoclean && \
+        rm -rf /var/lib/apt/lists/* && \
+        ln -s /usr/bin/python3 /usr/bin/python
 
-FROM compss/${BASE}_tutorial:${BASE_VERSION} as compss-tutorial
+    ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64/
 
-COPY --from=ci /opt/COMPSs /opt/COMPSs
-COPY --from=ci /etc/init.d/compss-monitor /etc/init.d/compss-monitor
-COPY --from=ci /etc/profile.d/compss.sh /etc/profile.d/compss.sh
+    COPY --from=compss_fw /opt/COMPSs /opt/COMPSs
+    COPY --from=compss_fw /etc/profile.d/compss.sh /etc/profile.d/compss.sh
 
-#ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64/
-ENV PATH $PATH:/opt/COMPSs/Runtime/scripts/user:/opt/COMPSs/Bindings/c/bin:/opt/COMPSs/Runtime/scripts/utils:/root/.local/bin
-ENV CLASSPATH $CLASSPATH:/opt/COMPSs/Runtime/compss-engine.jar
-ENV LD_LIBRARY_PATH /opt/COMPSs/Bindings/bindings-common/lib:$LD_LIBRARY_PATH
-ENV COMPSS_HOME=/opt/COMPSs/
-ENV PYTHONPATH=$COMPSS_HOME/Bindings/python/3:$PYTHONPATH
+    ENV PATH="${PATH}:/opt/COMPSs/Runtime/scripts/user:/opt/COMPSs/Bindings/c/bin:/opt/COMPSs/Runtime/scripts/utils"
+    ENV CLASSPATH="${CLASSPATH}:/opt/COMPSs/Runtime/compss-engine.jar"
+    ENV LD_LIBRARY_PATH="/opt/COMPSs/Bindings/bindings-common/lib:${JAVA_HOME}/jre/lib/amd64/server"
+    ENV COMPSS_HOME=/opt/COMPSs/
+    ENV PYTHONPATH="${COMPSS_HOME}/Bindings/python/3:${PYTHONPATH}"
 
-RUN python3 -m pip install --no-cache-dir dislib jupyterlab==3.6.3 rocrate==0.9.0 && \
-    apt-get update && apt-get install -y --no-install-recommends jq bc ca-certificates curl gnupg && \
-    apt-get autoclean && \
-    rm -rf /var/lib/apt/lists/* && \
-    git clone https://github.com/bsc-wdc/jupyter-extension.git je && \
-    cd je && python3 -m pip install ./ipycompss_kernel && \
-    cd ipycompss_lab_extension && mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_16.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && apt-get install -y nodejs python3.8-tk policykit-1 && \
-    jlpm install && jlpm run build:prod && python3 -m pip install . && service dbus start
+    ENV APP_PATH=/app
+    CMD ["/bin/bash", "-c", "/opt/COMPSs/Runtime/scripts/user/compss_agent_start --hostname=${HOSTNAME} --pythonpath=${APP_PATH} --log_dir=/log --rest_port=46101 --comm_port=46102"]
 
-EXPOSE 22
-EXPOSE 43000-44000
-CMD ["/usr/sbin/sshd","-D"]
-
-FROM compss/${BASE}_rt:${BASE_VERSION} as minimal
-
-COPY --from=ci /opt/COMPSs /opt/COMPSs
-COPY --from=ci /etc/profile.d/compss.sh /etc/profile.d/compss.sh
-
-# ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64/
-ENV PATH $PATH:/opt/COMPSs/Runtime/scripts/user:/opt/COMPSs/Bindings/c/bin:/opt/COMPSs/Runtime/scripts/utils
-ENV CLASSPATH $CLASSPATH:/opt/COMPSs/Runtime/compss-engine.jar
-ENV LD_LIBRARY_PATH /opt/COMPSs/Bindings/bindings-common/lib:$LD_LIBRARY_PATH
-ENV COMPSS_HOME=/opt/COMPSs/
-
-
-FROM compss/${BASE}_python:${BASE_VERSION} as pycompss 
-
-COPY --from=ci /opt/COMPSs /opt/COMPSs
-COPY --from=ci /etc/init.d/compss-monitor /etc/init.d/compss-monitor
-COPY --from=ci /etc/profile.d/compss.sh /etc/profile.d/compss.sh
-
-# ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64/
-ENV PATH $PATH:/opt/COMPSs/Runtime/scripts/user:/opt/COMPSs/Bindings/c/bin:/opt/COMPSs/Runtime/scripts/utils
-ENV CLASSPATH $CLASSPATH:/opt/COMPSs/Runtime/compss-engine.jar
-ENV LD_LIBRARY_PATH /opt/COMPSs/Bindings/bindings-common/lib:$LD_LIBRARY_PATH
-ENV COMPSS_HOME=/opt/COMPSs/
-
+    EXPOSE 46101
+    EXPOSE 46102

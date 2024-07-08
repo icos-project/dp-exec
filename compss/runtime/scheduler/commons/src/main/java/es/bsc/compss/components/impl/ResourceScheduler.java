@@ -31,6 +31,7 @@ import es.bsc.compss.types.resources.WorkerResourceDescription;
 import es.bsc.compss.types.resources.updates.ResourceUpdate;
 import es.bsc.compss.util.CoreManager;
 import es.bsc.compss.util.ErrorManager;
+import es.bsc.compss.util.OTelFacade;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -356,6 +357,9 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
             int coreId = impl.getCoreId();
             int implId = impl.getImplementationId();
             this.profiles[coreId][implId].accumulate(profile);
+            if (this.myWorker == Comm.getAppHost()) {
+                OTelFacade.finishedTask(coreId, this.profiles[coreId][implId]);
+            }
         }
         customProfiledExecution(impl, profile);
     }
@@ -415,6 +419,9 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
      * @param action AllocatableAction to add to the resource.
      */
     public final void hostAction(AllocatableAction action) {
+        if (action.getCoreId() != null) {
+            OTelFacade.startTask(action.getCoreId());
+        }
         LOGGER.debug("[ResourceScheduler] Host action " + action);
         this.running.add(action);
 

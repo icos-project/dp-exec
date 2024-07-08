@@ -210,6 +210,16 @@
                 <artifactId>zul</artifactId>
                 <version>${zk.version}</version>
             </dependency>
+
+            <!-- OTel -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>1.32.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            
         </dependencies>
     </dependencyManagement>
 

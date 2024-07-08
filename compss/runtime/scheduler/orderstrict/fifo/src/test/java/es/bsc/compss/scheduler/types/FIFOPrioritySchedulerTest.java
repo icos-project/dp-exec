@@ -34,6 +34,7 @@ import es.bsc.compss.types.resources.updates.PerformedIncrease;
 import es.bsc.compss.types.resources.updates.PerformedReduction;
 import es.bsc.compss.types.resources.updates.ResourceUpdate;
 import es.bsc.compss.util.CoreManager;
+import es.bsc.compss.util.OTelFacade;
 import es.bsc.compss.util.ResourceManager;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -85,6 +86,10 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
+
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker01";
@@ -114,6 +119,10 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
+
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker02";
@@ -151,6 +160,9 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker03";
@@ -198,6 +210,9 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker04";
@@ -257,6 +272,8 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker05";
@@ -326,6 +343,8 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker06";
@@ -379,6 +398,8 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         FakeAllocatableAction action0 = generateNewAA(fao, 0, ce0, ts, validator);
@@ -459,6 +480,8 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName0 = "Worker08";
@@ -524,6 +547,8 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName0 = "Worker10";
@@ -596,6 +621,8 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName0 = "Worker12";
@@ -652,6 +679,8 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName0 = "Worker14";
@@ -702,6 +731,8 @@ public class FIFOPrioritySchedulerTest {
         TaskScheduler ts = new FifoTS();
         FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
         ts.setOrchestrator(fao);
+        OTelFacade.clearCoreElements();
+        ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName0 = "Worker16";

@@ -1,0 +1,25 @@
+include:
+  - project: 'resengit/gitlab/pipeline-helpers'
+    ref: main
+    file: '/pipelines/docker-image.yaml'
+
+variables:
+  # disable Kaniko compressed caching. This helps with build job being killed due to out of memory errors.
+  # See: https://github.com/GoogleContainerTools/kaniko#flag---compressed-caching
+  PH_KANIKO_OPTS: --compressed-caching=false
+  PH_SONAR_PROP_java_binaries: $CI_PROJECT_DIR
+  PH_SONAR_PROP_exclusions: dependencies/**
+
+
+compile_for_qa:
+  stage: compile
+  image: compss/base22_ci
+  script:
+  - touch compss/runtime/config/xml/resources/resources_schema.xsd
+  - touch compss/runtime/config/xml/projects/project_schema.xsd
+  - mvn clean package
+  artifacts:
+    paths:
+    - "**/*.class"
+    - "**/checkstyle*"
+    - "**/jacoco*"

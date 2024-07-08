@@ -1,0 +1,721 @@
+openapi: 3.0.3
+info:
+  title: COMPSs Agent
+  description: This is the COMPSs Agent API based on the OpenAPI 3.0 specification.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 3.2
+servers:
+- url: http://localhost:46101/COMPSs
+tags:
+- name: test
+  description: Operations for health checking the service
+- name: resources
+  description: Operations about resource management
+- name: executions
+  description: Operations about fuction executions
+
+paths:
+  /test:
+    get:
+      tags:
+      - test
+      operationId: test
+      summary: Health check
+      responses:
+        "200":
+          description: successful operation
+  
+  /resources:
+    get:
+      tags:
+      - resources
+      summary: Obtains a list of all the resources currently configured in the agent
+      operationId: getResources
+      responses:
+        "200":
+          description: successful operation
+          "content": 
+            application/json: 
+              schema: 
+                type: object
+                properties: 
+                  time: 
+                    description: timestamp when the response was calculcated
+                    type: integer
+                    format: int64
+                    example: 1696439529192
+                  resources: 
+                    description: resources available at the time
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Name of the resource
+                          example: Node
+                        description:
+                          type: object
+                          description: Characteristics of the resource
+                          $ref: '#/components/schemas/ResourceDescription'
+              examples:
+                IOT:
+                  $ref: '#/components/examples/getResources/iot'
+                IOT+server:
+                  $ref: '#/components/examples/getResources/iot_server'
+                          
+        "500":
+          description: internal server error
+
+  /addResources:
+    put:
+      tags:
+      - resources
+      summary: Increments the resource pool of the agent with the following resources
+      operationId: addResources
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/IncreaseNodeNotification'
+            examples:
+              new:
+                  $ref: '#/components/examples/addResources/new_iot'
+              partial:
+                  $ref: '#/components/examples/addResources/partial_server_increase'
+      responses:
+        "200":
+          description: successful operation
+        "500":
+          description: internal server error
+
+  /removeResources:
+    put:
+      tags:
+      - resources
+      summary: Reduces the resource pool of the agent with the following resources
+      operationId: removeResources
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/ReduceNodeRequest'
+            examples:
+                full:
+                  $ref: '#/components/examples/removeResources/full_iot_remove'
+                partial:
+                  $ref: '#/components/examples/removeResources/partial_server_remove'
+      responses:
+        "200":
+          description: successful operation
+        "500":
+          description: internal server error
+
+
+  /removeNode:
+    put:
+      tags:
+      - resources
+      summary: Reduces the resource pool of the agent removing all the resources from a node
+      operationId: removeResources
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/RemoveNodeRequest'
+      responses:
+        "200":
+          description: successful operation
+        "500":
+          description: internal server error
+
+  /lostNode:
+    put:
+      tags:
+      - resources
+      summary: Reduces the resource pool of the agent removing all the resources from a node assuming that all its task have failed.
+      operationId: lostResource
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/LostNodeRequest'
+      responses:
+        "200":
+          description: successful operation
+        "500":
+          description: internal server error
+
+
+  /startApplication:
+    put:
+      tags:
+      - executions
+      summary: Starts the parallel and distributed execution of a function in an asynchronous manner
+      operationId: startApp
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/StartApplicationRequest'
+            examples:
+                java_main:
+                  $ref: '#/components/examples/startApplication/java_main'
+                java_complex:
+                  $ref: '#/components/examples/startApplication/java_complex'
+                python_main:
+                  $ref: '#/components/examples/startApplication/python_main'
+      responses:
+        "200":
+          description: successful operation
+          "content": 
+            application/json: 
+              schema: 
+                type: string
+                description: UUID of the execution
+                example: 3986346520064057528
+        "500":
+          description: internal server error during the parsing of the function description and its parameters, not during the function execution.
+
+
+components:
+  schemas:
+    ProcessorDescription:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the processor
+          example: MainProcessor
+          required: true
+        units:
+          type: integer
+          description: Number of cores
+          format: int64
+          example: 4
+          required: true
+        architecture:
+          type: string
+          description: Architecture of the processor
+          example: x86
+
+
+    ResourceDescription:
+      type: object
+      properties:
+        processors:
+          type: array
+          items: 
+            $ref: '#/components/schemas/ProcessorDescription'
+            xml:
+              name: 'processor'
+          xml:
+            wrapped : true
+            name: processors
+        memory_size:
+          type: number
+          format: float
+          description: Amount of RAM memory on the resource (GB)
+          example: 3
+        memory_type:
+          type: string
+          description: Type of memory on the resource
+          example: NVRAM
+        storage_size:
+          type: number
+          format: float
+          description: Amount of storage space on the resource (GB)
+          example: 3
+        storage_type:
+          type: string
+          description: Type of storage mounted on the resource
+          example: SSD
+        storage_bandwidth:
+          type: number
+          format: float
+          description: Disk bandwith of the resource (Mbps)
+          example: 1000
+
+    ResourcesExternalAdaptorProperties:   
+      type: array
+      items:
+        name: property
+        type: object
+        properties:
+          Property:
+            type: object
+            properties:
+              Name:
+                type: string
+                description: Property name
+              Value:
+                type: string
+                description: Property value
+
+    ExternalAdaptorProperties:
+      type: array
+      items:
+        name: property
+        type: object
+        properties:
+          Property:
+            type: object
+            properties:
+              Name:
+                type: string
+                description: Property name
+                example: Port
+              Value:
+                type: string
+                description: Property value
+                example: 46102
+        
+    ExternalAdaptorResource:
+      type: object
+      properties:
+        name:
+          description: Name of the resource
+          type: string
+          example: Node1
+          required: true
+        description:
+          description: Type of resource
+          type: object
+          $ref: '#/components/schemas/ResourceDescription'
+          required: true
+        adaptor:
+          description: Adaptor needed to communicate with the resource
+          type: string
+          example: es.bsc.compss.agent.comm.CommAgentAdaptor
+          required: true
+        projectConf:
+          type: object
+          description: resource configuration with external Adaptor format
+          $ref: '#/components/schemas/ExternalAdaptorProperties'
+        resourceConf:
+          type: object
+          description: resource capabilities for a External Adaptor
+          $ref: '#/components/schemas/ResourcesExternalAdaptorProperties'
+      xml:
+        name: 'externalResource' 
+
+
+
+    IncreaseNodeNotification:
+      type: object
+      properties:
+        resource:
+          description: resource to be added
+          type: object
+          $ref: '#/components/schemas/ExternalAdaptorResource'
+          required: true
+      xml:
+        name: 'newResource'
+          
+    ReduceNodeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the resource
+          example: Node1
+        resources:
+          type: object
+          description: Type of resource
+          $ref: '#/components/schemas/ResourceDescription'
+      xml:
+        name: 'reduceNode'
+
+
+    RemoveNodeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the resource
+          example: Node1
+      xml:
+        name: 'removeNode'
+
+    LostNodeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the resource
+          example: Node1
+      xml:
+        name: 'lostNode'
+
+
+    Parameter_Value:
+      type: object
+      properties:
+        paramId:
+          type: integer
+          format: int32
+          description: position of the parameter
+          xml:
+            attribute: true
+          example: 0
+
+
+    Parameter_Array:
+      allOf:
+        - $ref: '#/components/schemas/Parameter_Value'
+        - type: object
+          description: Collection of values in a single parameter
+          properties:
+            componentClassname:
+              type: string
+              description: class of the internal elements of the collection
+              required: true
+            values:
+              type: array
+              description: array of values 
+              required: true
+              items:
+                oneOf:
+                  - $ref: '#/components/schemas/Parameter_Element'
+                  - $ref: '#/components/schemas/Parameter_Array'
+      xml:
+        name: 'array'
+
+
+    Parameter_Element:
+      allOf:
+        - $ref: '#/components/schemas/Parameter_Value'    
+        - type: object
+          description: One single value in the parameter
+          properties:
+            className:
+              type: string
+              description: class of the parameter value
+              required: true
+              example: java.lang.String
+            value:
+              type: string
+              description: value of the parameter
+              required: true
+              example: arg_value
+          xml:
+            name: 'element'
+
+    Parameter:
+      type: object
+      description: parameter description
+      properties:
+        paramId:
+          type: integer
+          format: int32
+          description: position of the parameter
+          xml:
+            attribute: true
+          example: 0
+        paramName:
+          type: string
+          description: name of the parameter in the function
+          example: args
+        direction:
+          type: string
+          enum:
+            - IN
+            - INOUT
+            - OUT
+          description: operation to be performed on the parameter by the function
+          example: IN
+        prefix:
+          type: string
+          description: prefix to be included to the parameter value
+          default: ""
+          example: ""
+        stdIOStream:
+          type: string
+          description: redirected stream 
+          enum:
+            - STDIN
+            - STDOUT
+            - STDERR
+            - UNSPECIFIED 
+          default: "UNSPECIFIED"
+          example: ""
+        value:
+          type: object
+          oneOf:
+            - $ref: '#/components/schemas/Parameter_Element'
+            - $ref: '#/components/schemas/Parameter_Array'
+      xml:
+        name: params
+
+    StartApplicationRequest:
+      type: object
+      properties:
+        lang:
+          type: string
+          enum:
+          - PYTHON
+          - JAVA
+          description: language of the execution
+          required: true
+          example: PYTHON
+        className:
+          type: string
+          description: name of the class or module containing the function to invoke
+          required: true
+          example: kmeans.Kmeans
+        methodName: 
+          type: string
+          required: true
+          description: name of the function to invoke
+          example: fit
+        ceiClass: 
+          type: string
+          required: false
+          description: For java, name of the class containing the CE selection
+          example: kmeans.KmeansItf
+        parameters:
+          type: array
+          required: true
+          description: parameters of the function to invoke
+          items: 
+            name: parameter
+            $ref: '#/components/schemas/Parameter'
+            xml:
+              name: 'params'
+          xml:
+            wrapped : true
+            name: parameters
+        target:
+          type: object
+          required: false
+          description: callee of the function to invoke
+          $ref: '#/components/schemas/Parameter'
+      
+
+
+  examples:
+    processors:
+      48_core_Intel:
+        summary: 48-core Intel processor
+        value:
+          name: MainProcessor
+          units: 48
+          architecture: x86_64
+      4_core_ARM:
+        summary: 4-core ARM processor
+        value:        
+          name: MainProcessor
+          units: 4
+          architecture: ARMv32
+      gpu:
+        summary: GPU accelerator
+        value:
+          name: GPU
+          units: 16
+
+    resource:
+      server:
+        summary: Description of a Server Node
+        value:
+          processors: 
+            - name: MainProcessor
+              units: 48
+              architecture: x86_64
+            - name: GPU
+              units: 16
+          memory_size: 96
+          memory_type: NVRAM
+          storage_size: 1000
+          storage_type: SSD
+          storage_bandwidth: 1000
+      iot:
+        summary: Description of an IoT Node
+        value:
+          processors: 
+            - name: MainProcessor
+              units: 4
+              architecture: ARMv32
+          memory_size: 4
+          memory_type: NVRAM
+          storage_size: 64
+          storage_type: SDCard
+          storage_bandwidth: 30
+    
+    getResources:
+      iot:
+        summary: Only one IoT device set up
+        value:
+          time:  1696439529194
+          resources:
+            - name: IoT_device
+              description: 
+                processors: 
+                  - name: MainProcessor
+                    units: 4
+                    architecture: ARMv32
+                memory_size: 4
+                memory_type: NVRAM
+                storage_size: 64
+                storage_type: SDCard
+                storage_bandwidth: 30
+      iot_server:
+        summary: Set up with a server and an IoT device
+        value:
+          time:  1696439529194
+          resources:
+            - name: IoT_device
+              description: 
+                processors: 
+                  - name: MainProcessor
+                    units: 4
+                    architecture: ARMv32
+                memory_size: 4
+                memory_type: NVRAM
+                storage_size: 64
+                storage_type: SDCard
+                storage_bandwidth: 30
+            - name: server
+              description: 
+                processors: 
+                  - name: MainProcessor
+                    units: 48
+                    architecture: x86_64
+                  - name: GPU
+                    units: 16
+                memory_size: 48
+                memory_type: NVRAM
+                storage_size: 1000
+                storage_type: SSD
+                storage_bandwidth: 1000
+    addResources:
+      new_iot:
+        summary: Adding a whole new IoT resource
+        value:
+          resource:
+            name: IoT_device
+            description: 
+              processors: 
+                - name: MainProcessor
+                  units: 4
+                  architecture: ARMv32
+              memory_size: 4
+              memory_type: NVRAM
+              storage_size: 64
+              storage_type: SDCard
+              storage_bandwidth: 30                
+            adaptor: es.bsc.compss.agent.comm.CommAgentAdaptor
+            resourceConf:
+              - Property:
+                  Name: Port
+                  Value: 46102
+      partial_server_increase:
+        summary: Increasing the computing capability (+ 24 cores) of the existing resource named "server"
+        value:
+          resource:
+            name: server
+            description: 
+              processors: 
+                - name: MainProcessor
+                  units: 24
+                  architecture: x86_64
+            adaptor: es.bsc.compss.agent.comm.CommAgentAdaptor
+            resourceConf:
+              - Property:
+                  Name: Port
+                  Value: 46102
+
+    removeResources:
+      full_iot_remove:
+        summary: Removing all the computing resources from the IoT device
+        value:
+          name: IoT_device
+          resources: 
+            processors: 
+              - name: MainProcessor
+                units: 4
+                architecture: ARMv32
+            memory_size: 4
+            memory_type: NVRAM
+            storage_size: 64
+            storage_type: SDCard
+            storage_bandwidth: 30
+
+      partial_server_remove:
+        summary: Reducing the computing capabilities (- 24 cores) available on the existing resource named "server"
+        value:
+          name: server
+          resources: 
+            processors: 
+              - name: MainProcessor
+                units: 24
+                architecture: x86_64
+
+    startApplication:
+      java_main:
+        summary: Example of the submission of the main function in Java
+        value:
+          lang: JAVA
+          className: package.name.Class
+          methodName: main
+          hasResult: false
+          parameters:
+            - paramId: 0
+              paramName: args
+              direction: IN
+              stdIOStream: UNSPECIFIED
+              type: object
+              value:
+                paramId: 0
+                componentClassName: java.lang.String
+                values:
+                  - paramId: 0
+                    className: java.lang.String
+                    value: arg[0] value
+                  - paramId: 1
+                    className: java.lang.String
+                    value: arg[1] value
+
+      java_complex:
+        summary: Example of a complex submission of a Java method
+        value:
+          lang: JAVA
+          className: package.name.Class
+          methodName: foo
+          hasResult: true
+          parameters:
+            -
+          target:
+          
+      python_main:
+        summary: Example of the submission of the main function in Python
+        value:
+          lang: PYTHON
+          className: module.name.Class
+          methodName: main
+          hasResult: false
+          parameters:
+            - paramId: 0
+              paramName: args
+              direction: IN
+              stdIOStream: UNSPECIFIED
+              type: STRING_64_T
+              value:
+                paramId: 0
+                className: java.lang.String
+                value: I2FyZzA
+            - paramId: 1
+              paramName: args
+              direction: IN
+              stdIOStream: UNSPECIFIED
+              type: STRING_64_T   
+              value:
+                paramId: 0
+                className: java.lang.String
+                value: I2FyZzE       
