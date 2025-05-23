@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -114,12 +114,11 @@ public class MethodDefinition implements AbstractMethodImplementationDefinition 
     }
 
     @Override
-    public String toMethodDefinitionFormat() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[DECLARING CLASS=").append(this.declaringClass);
-        sb.append(", METHOD NAME=").append(this.alternativeMethod);
-        sb.append("]");
-
+    public String toJSON() {
+        StringBuilder sb = new StringBuilder("{\"type\":\"METHOD\",");
+        sb.append("\"declaring_class\":\"").append(this.declaringClass).append("\",");
+        sb.append("\"method_name\":\"").append(this.alternativeMethod).append("\"");
+        sb.append("}");
         return sb.toString();
     }
 

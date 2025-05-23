@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@ import es.bsc.compss.scheduler.types.SchedulingInformation;
 import es.bsc.compss.types.ReduceTask;
 import es.bsc.compss.types.Task;
 import es.bsc.compss.types.TaskDescription;
-import es.bsc.compss.types.data.DataAccessId;
-import es.bsc.compss.types.data.DataAccessId.ReadingDataAccessId;
-import es.bsc.compss.types.data.DataInstanceId;
+import es.bsc.compss.types.data.EngineDataInstanceId;
 import es.bsc.compss.types.data.LogicalData;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.ReadingDataAccessId;
 import es.bsc.compss.types.parameter.impl.CollectiveParameter;
 import es.bsc.compss.types.parameter.impl.DependencyParameter;
 import es.bsc.compss.types.parameter.impl.FileParameter;
@@ -157,8 +157,8 @@ public class ReduceExecutionAction extends ExecutionAction {
     }
 
     private Resource getParameterLocation(DependencyParameter dp) {
-        DataInstanceId dId = null;
-        DataAccessId access = dp.getDataAccessId();
+        EngineDataInstanceId dId = null;
+        EngineDataAccessId access = dp.getDataAccessId();
         if (access.isRead()) {
             ReadingDataAccessId raId = (ReadingDataAccessId) dp.getDataAccessId();
             dId = raId.getReadDataInstance();
@@ -458,11 +458,11 @@ public class ReduceExecutionAction extends ExecutionAction {
     }
 
     @Override
-    protected void doCanceled() {
+    protected boolean doCanceled() {
         List<Parameter> finalParameters = this.task.getTaskDescription().getParameters();
         finalParameters.set(this.colIndex, initialCollection);
 
-        super.doCanceled();
+        return super.doCanceled();
     }
 
     @Override

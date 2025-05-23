@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,21 +16,30 @@
  */
 package es.bsc.compss.types;
 
+import es.bsc.compss.log.Loggers;
 import es.bsc.compss.scheduler.types.ActionGroup.MutexGroup;
-import es.bsc.compss.types.data.DataAccessId;
-import es.bsc.compss.types.data.DataInstanceId;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
 import es.bsc.compss.types.data.accessid.RWAccessId;
-import es.bsc.compss.types.parameter.impl.Parameter;
+import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.info.DataVersion;
 
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 
 public class CommutativeGroupTask extends AbstractTask {
 
+    // Logger
+    private static final Logger LOGGER = LogManager.getLogger(Loggers.TP_COMP);
+    private static final boolean DEBUG = LOGGER.isDebugEnabled();
+
     private static int commGroupTaskId = -1;
     private final CommutativeIdentifier comId;
-    private final DataAccessId accessPlaceholder = new CommutativeDataAccessId();
+    private final EngineDataAccessId accessPlaceholder = new CommutativeDataAccessId();
 
     // Tasks that access the data
     private final List<Task> commutativeTasks;
@@ -60,6 +69,7 @@ public class CommutativeGroupTask extends AbstractTask {
         this.accesses = new LinkedList<>();
         this.comId = comId;
         this.actions = new MutexGroup();
+        this.getApplication().onCommutativeGroupCreation(this);
     }
 
     /**
@@ -84,7 +94,10 @@ public class CommutativeGroupTask extends AbstractTask {
      * Closes the group.
      */
     public void close() {
-        this.closed = true;
+        if (!this.isClosed()) {
+            this.closed = true;
+            this.getApplication().onCommutativeGroupClosure(this);
+        }
     }
 
     /**
@@ -103,6 +116,27 @@ public class CommutativeGroupTask extends AbstractTask {
      */
     public void addCommutativeTask(Task task) {
         this.commutativeTasks.add(task);
+        this.getApplication().onTaskBelongsToCommutativeGroup(task, this);
+    }
+
+    /**
+     * Notifies the group that a Commutative task has finished.
+     * 
+     * @param task finished task
+     */
+    public void finishedCommutativeTask(Task task) {
+        this.commutativeTasks.remove(task);
+        this.setStatus(TaskState.FINISHED);
+        this.removePredecessor(task);
+        super.getPredecessors().remove(task);
+        if (this.getPredecessors().isEmpty()) {
+            this.releaseDataDependents();
+            this.notifyListeners();
+            if (DEBUG) {
+                LOGGER.debug("Group " + this.getId() + " ended execution");
+                LOGGER.debug("Data dependents of group " + this.getCommutativeIdentifier() + " released ");
+            }
+        }
     }
 
     /**
@@ -130,7 +164,7 @@ public class CommutativeGroupTask extends AbstractTask {
      * 
      * @return first access of the commutative group to the data
      */
-    public DataAccessId getGroupPredecessorAccess() {
+    public EngineDataAccessId getGroupPredecessorAccess() {
         return this.groupPredecessorAccess;
     }
 
@@ -147,16 +181,7 @@ public class CommutativeGroupTask extends AbstractTask {
         }
     }
 
-    /**
-     * Removes predecessor from group.
-     *
-     * @param t Predecessor to remove.
-     */
-    public void removePredecessor(Task t) {
-        super.getPredecessors().remove(t);
-    }
-
-    public DataAccessId getAccessPlaceHolder() {
+    public EngineDataAccessId getAccessPlaceHolder() {
         return accessPlaceholder;
     }
 
@@ -165,8 +190,8 @@ public class CommutativeGroupTask extends AbstractTask {
      *
      * @return the access before being updated
      */
-    public synchronized DataAccessId nextAccess() {
-        DataAccessId oldAccess = this.firstAccess;
+    public synchronized EngineDataAccessId nextAccess() {
+        EngineDataAccessId oldAccess = this.firstAccess;
         if (!this.accesses.isEmpty()) {
             this.firstAccess = this.accesses.remove();
         } else {
@@ -185,21 +210,6 @@ public class CommutativeGroupTask extends AbstractTask {
      */
     public final MutexGroup getActions() {
         return actions;
-    }
-
-    @Override
-    public List<Parameter> getParameterDataToRemove() {
-        return new LinkedList<>();
-    }
-
-    @Override
-    public List<Parameter> getIntermediateParameters() {
-        return new LinkedList<>();
-    }
-
-    @Override
-    public List<Parameter> getUnusedIntermediateParameters() {
-        return new LinkedList<>();
     }
 
     @Override
@@ -233,6 +243,20 @@ public class CommutativeGroupTask extends AbstractTask {
             return firstAccess.getDataId();
         }
 
+        public DataInfo getAccessedDataInfo() {
+            return firstAccess.getAccessedDataInfo();
+        }
+
+        @Override
+        public DataVersion getReadDataVersion() {
+            return firstAccess.getReadDataVersion();
+        }
+
+        @Override
+        public DataVersion getWrittenDataVersion() {
+            return firstAccess.getWrittenDataVersion();
+        }
+
         @Override
         public Direction getDirection() {
             return firstAccess.getDirection();
@@ -249,12 +273,12 @@ public class CommutativeGroupTask extends AbstractTask {
         }
 
         @Override
-        public DataInstanceId getReadDataInstance() {
+        public EngineDataInstanceId getReadDataInstance() {
             return firstAccess.getReadDataInstance();
         }
 
         @Override
-        public DataInstanceId getWrittenDataInstance() {
+        public EngineDataInstanceId getWrittenDataInstance() {
             return firstAccess.getWrittenDataInstance();
         }
 

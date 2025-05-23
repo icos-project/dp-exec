@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -35,10 +35,10 @@ from pycompss_cli.core.local.cmd import local_job_list
 from pycompss_cli.core.local.cmd import local_cancel_job
 from pycompss_cli.core.local.cmd import local_job_status
 from pycompss_cli.core.local.cmd import local_app_deploy
+from pycompss_cli.core.local.cmd import local_inspect
 from pycompss_cli.core.actions import Actions
 import pycompss_cli.core.utils as utils
 import os, sys
-
 
 
 class LocalActions(Actions):
@@ -329,3 +329,10 @@ class LocalActions(Actions):
                 apps.append(App(app_dir_name))
         self.apps = apps
         return apps
+
+    def inspect(self):
+        # Code that inspects the RO-Crate
+        local_inspect(self.arguments.ro_crate)
+
+
+

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -147,6 +147,16 @@ public class GOSJob extends JobImpl<GOSWorkerNode> {
      */
     @Override
     public void submitJob() {
+        if (this.history == JobHistory.CANCELLED) {
+            LOGGER.warn("Ignoring notification since the job was cancelled");
+            removeTmpData();
+            return;
+        }
+        if (this.isBeingCancelled()) {
+            LOGGER.warn("Job is being cancelled");
+            notifyFailure(JobEndStatus.SUBMISSION_FAILED);
+            return;
+        }
         jobPrefix = "[GOSJob " + getCompositeID() + "] ";
         LOGGER.info("Submit GOSJob " + getCompositeID());
         jobDescription = prepareJob();
@@ -176,6 +186,7 @@ public class GOSJob extends JobImpl<GOSWorkerNode> {
                 LOGGER.debug("      * MaxExecTime: " + jobDescription.getMaxExecTime());
                 LOGGER.debug("      * QOS: " + jobDescription.getQOS());
                 LOGGER.debug("      * CFG: " + jobDescription.getCFG());
+                LOGGER.debug("      * ProjectName: " + jobDescription.getProjectName());
             }
             LOGGER.debug("  * Executable: " + jobDescription.getExecutable());
 
@@ -188,6 +199,16 @@ public class GOSJob extends JobImpl<GOSWorkerNode> {
     }
 
     private boolean launchJob() {
+        if (this.history == JobHistory.CANCELLED) {
+            LOGGER.error("Ignoring notification since the job was cancelled");
+            removeTmpData();
+            return false;
+        }
+        if (this.isBeingCancelled()) {
+            LOGGER.warn("Job is being cancelled");
+            notifyFailure(JobEndStatus.SUBMISSION_FAILED);
+            return false;
+        }
         SSHChannel ch;
         boolean ret;
         try {
@@ -213,7 +234,13 @@ public class GOSJob extends JobImpl<GOSWorkerNode> {
             jd.setCFG(getConfig().getProjectProperty("FileCFG"));
             jd.setQOS(getConfig().getProjectProperty("QOS"));
             jd.setReservation(getConfig().getProjectProperty("Reservation"));
-            jd.setMaxExecTime(getConfig().getProjectProperty("MaxExecTime"));
+            jd.setProjectName(getConfig().getProjectProperty("ProjectName"));
+            long timeout = getTimeOut();
+            if (timeout > 0) {
+                jd.setMaxExecTime((long) (timeout / 60));
+            } else {
+                jd.setMaxExecTime(getConfig().getProjectProperty("MaxExecTime"));
+            }
         }
         jd.setHost(getResourceNode().getSSHHost());
         jd.setSandboxDir(getConfig().getSandboxWorkingDir());
@@ -362,12 +389,14 @@ public class GOSJob extends JobImpl<GOSWorkerNode> {
             singleParamDesc.add(Boolean.toString(param.isKeepRename()));
 
             switch (type) {
+                case DIRECTORY_T:
                 case FILE_T:
                 case EXTERNAL_STREAM_T:
                     DependencyParameter dFilePar = (DependencyParameter) param;
                     String originalName = dFilePar.getOriginalName();
                     singleParamDesc.add(originalName);
                     singleParamDesc.add(dFilePar.getDataTarget());
+                    jd.killArguments.add(dFilePar.getDataTarget());
                     break;
                 case PSCO_T:
                 case EXTERNAL_PSCO_T:
@@ -500,16 +529,20 @@ public class GOSJob extends JobImpl<GOSWorkerNode> {
     }
 
     @Override
-    public void cancelJob() {
+    public void cancelJob() throws Exception {
         LOGGER.debug("GOS Cancel Job " + getCompositeID());
-        SSHHost executingHost = jobDescription.getSSHHost();
-        String cancelScript = jobDescription.getCancelScriptDir() + "/" + getCompositeID();
-        try {
-            SSHChannel ch =
-                executingHost.killJob(this, cancelScript, jobDescription.getOutput(), jobDescription.getOutputError());
-            this.setChannel(ch);
-        } catch (Exception e) {
-            LOGGER.error(jobPrefix + " Error during job cancelation", e);
+        if (jobDescription != null) {
+            SSHHost executingHost = jobDescription.getSSHHost();
+            if (executingHost != null) {
+                String cancelScript = jobDescription.getCancelScript(getCompositeID());
+                SSHChannel ch = executingHost.killJob(this, cancelScript, jobDescription.getOutput(),
+                    jobDescription.getOutputError());
+                this.setChannel(ch);
+            } else {
+                throw (new Exception("Job not submitted"));
+            }
+        } else {
+            throw (new Exception("Job not submitted"));
         }
     }
 
@@ -607,6 +640,7 @@ public class GOSJob extends JobImpl<GOSWorkerNode> {
         sb.append(" --reservation=").append(jd.getReservation());
         sb.append(" --job_name=").append(getJobId());
         sb.append(" --qos=").append(jd.getQOS());
+        sb.append(" --project_name=").append(jd.getProjectName());
 
         MethodResourceDescription mrd = (MethodResourceDescription) this.impl.getRequirements();
 

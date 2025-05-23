@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -184,11 +184,11 @@ public class JuliaDefinition implements AbstractMethodImplementationDefinition {
     }
 
     @Override
-    public String toMethodDefinitionFormat() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[JULIA_EXECUTOR=").append(this.juliaExecutor);
-        sb.append(", JULIA_SCRIPT=").append(this.juliaScript);
-        sb.append("]");
+    public String toJSON() {
+        StringBuilder sb = new StringBuilder("{\"type\":\"JULIA\",");
+        sb.append("\"julia_executor\":\"").append(this.juliaExecutor).append("\",");
+        sb.append("\"julia_script\":\"").append(this.juliaScript).append("\"");
+        sb.append("}");
         return sb.toString();
     }
 

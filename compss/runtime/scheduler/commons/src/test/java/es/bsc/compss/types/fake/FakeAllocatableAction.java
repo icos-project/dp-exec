@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -121,8 +121,9 @@ public class FakeAllocatableAction extends AllocatableAction {
     }
 
     @Override
-    protected void doCanceled() {
+    protected boolean doCanceled() {
         cancelled[this.fakeId]++;
+        return true;
     }
 
     @Override

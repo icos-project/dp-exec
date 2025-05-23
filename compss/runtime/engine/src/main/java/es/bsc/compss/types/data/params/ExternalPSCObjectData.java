@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,19 +16,15 @@
  */
 package es.bsc.compss.types.data.params;
 
-import es.bsc.compss.types.Application;
-
-
 public class ExternalPSCObjectData extends ObjectData {
 
     /**
-     * Constructs a new DataParams for a binding object.
+     * Constructs a new DataParams for an external PSC Object.
      *
-     * @param app Application accessing the object
      * @param code code identifying the object
      */
-    public ExternalPSCObjectData(Application app, int code) {
-        super(app, code);
+    public ExternalPSCObjectData(int code) {
+        super(code);
     }
 
     @Override

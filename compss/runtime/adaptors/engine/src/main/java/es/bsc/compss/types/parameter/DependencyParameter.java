@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,13 +34,6 @@ public interface DependencyParameter extends Parameter, Transferable {
      * @return The data access id.
      */
     public DataAccessId getDataAccessId();
-
-    /**
-     * Sets a new data access id.
-     *
-     * @param daId New data access id.
-     */
-    public void setDataAccessId(DataAccessId daId);
 
     /**
      * Returns the parameter's original name.

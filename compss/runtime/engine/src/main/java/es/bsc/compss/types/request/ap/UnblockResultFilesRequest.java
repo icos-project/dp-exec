@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 package es.bsc.compss.types.request.ap;
 
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.types.data.ResultFile;
 import es.bsc.compss.types.data.info.FileInfo;
@@ -27,7 +25,7 @@ import es.bsc.compss.types.tracing.TraceEvent;
 import java.util.List;
 
 
-public class UnblockResultFilesRequest extends APRequest {
+public class UnblockResultFilesRequest implements APRequest {
 
     private final List<ResultFile> resultFiles;
 
@@ -42,7 +40,7 @@ public class UnblockResultFilesRequest extends APRequest {
     }
 
     @Override
-    public void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td) {
+    public void process(AccessProcessor ap, TaskDispatcher td) {
         for (ResultFile resFile : this.resultFiles) {
             FileInfo fi = resFile.getFileInfo();
             fi.unblockDeletions();

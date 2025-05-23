@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package es.bsc.compss.types.implementations.definition;
 import es.bsc.compss.types.annotations.Constants;
 import es.bsc.compss.types.implementations.MethodType;
 import es.bsc.compss.types.implementations.TaskType;
-import es.bsc.compss.types.resources.ContainerDescription;
 import es.bsc.compss.util.EnvironmentLoader;
 
 import java.io.IOException;
@@ -55,7 +54,7 @@ public class MPIDefinition extends CommonMPIDefinition implements AbstractMethod
 
     /**
      * Creates a new MPIImplementation instance from the given parameters.
-     * 
+     *
      * @param binary MPI binary path.
      * @param workingDir Binary working directory.
      * @param mpiRunner Path to the MPI command.
@@ -73,12 +72,22 @@ public class MPIDefinition extends CommonMPIDefinition implements AbstractMethod
 
     /**
      * Creates a new Definition from string array.
-     * 
+     *
      * @param implTypeArgs String array.
      * @param offset Element from the beginning of the string array.
-     * @param container String array for container description.
      */
-    public MPIDefinition(String[] implTypeArgs, int offset, String[] container) {
+    public MPIDefinition(String[] implTypeArgs, int offset) {
+        this(implTypeArgs, offset, null);
+    }
+
+    /**
+     * Creates a new Definition from string array.
+     *
+     * @param implTypeArgs String array.
+     * @param offset Element from the beginning of the string array.
+     * @param container Container description.
+     */
+    public MPIDefinition(String[] implTypeArgs, int offset, ContainerDescription container) {
         this.binary = EnvironmentLoader.loadFromEnvironment(implTypeArgs[offset]);
         this.workingDir = EnvironmentLoader.loadFromEnvironment(implTypeArgs[offset + 1]);
         this.mpiRunner = EnvironmentLoader.loadFromEnvironment(implTypeArgs[offset + 2]);
@@ -87,14 +96,7 @@ public class MPIDefinition extends CommonMPIDefinition implements AbstractMethod
         this.scaleByCU = Boolean.parseBoolean(implTypeArgs[offset + 5]);
         this.params = EnvironmentLoader.loadFromEnvironment(implTypeArgs[offset + 6]);
         this.failByEV = Boolean.parseBoolean(implTypeArgs[offset + 7]);
-
-        if (container[0] != null && !container[0].isEmpty() && !container[0].equals(Constants.UNASSIGNED)) {
-            String engineStr = container[0].toUpperCase();
-            ContainerDescription.ContainerEngine engine = ContainerDescription.ContainerEngine.valueOf(engineStr);
-            this.container = new ContainerDescription(engine, container[1], container[2]);
-        } else {
-            this.container = null;
-        }
+        this.container = container;
 
         checkArguments();
     }
@@ -113,7 +115,7 @@ public class MPIDefinition extends CommonMPIDefinition implements AbstractMethod
 
     /**
      * Returns the binary path.
-     * 
+     *
      * @return The binary path.
      */
     public String getBinary() {
@@ -139,16 +141,15 @@ public class MPIDefinition extends CommonMPIDefinition implements AbstractMethod
     }
 
     @Override
-    public String toMethodDefinitionFormat() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[MPI RUNNER=").append(this.mpiRunner);
-        sb.append(", MPI_PPN=").append(this.ppn);
-        sb.append(", MPI_FLAGS=").append(this.mpiFlags);
-        sb.append(", BINARY=").append(this.binary);
-        sb.append(", PARAMS=").append(this.params);
-        sb.append(", CONTAINER=").append(this.container);
-        sb.append(" ]");
-
+    public String toJSON() {
+        StringBuilder sb = new StringBuilder("{\"type\":\"MPI\",");
+        sb.append("\"mpi_runner\":\"").append(this.mpiRunner).append("\",");
+        sb.append("\"mpi_ppn\":").append(this.ppn).append(",");
+        sb.append("\"mpi_flags\":\"").append(this.mpiFlags).append("\",");
+        sb.append("\"binary\":\"").append(this.binary).append("\",");
+        sb.append("\"params\":\"").append(this.params).append("\",");
+        sb.append("\"container\":").append(this.container == null ? null : this.container.toJSON());
+        sb.append("}");
         return sb.toString();
     }
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import es.bsc.compss.comm.Comm;
 import es.bsc.compss.log.Loggers;
 import es.bsc.compss.scheduler.exceptions.ActionNotFoundException;
 import es.bsc.compss.scheduler.exceptions.ActionNotWaitingException;
+import es.bsc.compss.scheduler.exceptions.BlockedActionException;
+import es.bsc.compss.scheduler.exceptions.InvalidSchedulingException;
 import es.bsc.compss.scheduler.types.AllocatableAction;
 import es.bsc.compss.scheduler.types.Profile;
 import es.bsc.compss.scheduler.types.Score;
@@ -30,9 +32,9 @@ import es.bsc.compss.types.resources.Worker;
 import es.bsc.compss.types.resources.WorkerResourceDescription;
 import es.bsc.compss.types.resources.updates.ResourceUpdate;
 import es.bsc.compss.util.CoreManager;
-import es.bsc.compss.util.ErrorManager;
 import es.bsc.compss.util.OTelFacade;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -374,57 +376,100 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
      * ***************************************************************************************************************
      */
     /**
-     * Returns the number of tasks of type {@code taskId} that this resource is running.
-     *
-     * @param coreId Core Id.
-     * @return Number of tasks of the given core Id.
-     */
-    public final int getNumTasks(int coreId) {
-        int taskCount = -1;
-        if (coreId < profiles.length) {
-            taskCount = 0;
-            for (AllocatableAction aa : this.getHostedActions()) {
-                if (aa != null) {
-                    Integer cId = aa.getCoreId();
-                    if (cId != null && cId == coreId) {
-                        taskCount++;
-                    }
-                }
-            }
-        }
-        return taskCount;
-    }
-
-    /**
      * Returns true if this resource has available slots to run some task. False otherwise.
      *
-     * @return
+     * @return {@literal true} if the current worker can run something, {@literal false} otherwise
      */
     public final boolean canRunSomething() {
         return this.myWorker.canRunSomething();
     }
 
     /**
+     * Returns whether there are enough resources to run an Implementation or not.
+     *
+     * @param impl implementation to run
+     * @return {@literal true} if there are enough resources to run the action, {@literal false} otherwise.
+     */
+    private boolean canRunNow(Implementation impl) {
+        try {
+            return this.myWorker.canRunNow((T) impl.getRequirements());
+        } catch (ClassCastException cce) {
+            return false;
+        }
+    }
+
+    /**
+     * Returns all the running actions.
+     *
+     * @return All the running actions.
+     */
+    public final AllocatableAction[] getRunningActions() {
+        return this.running.toArray(new AllocatableAction[running.size()]);
+    }
+
+    /**
      * Returns all the hosted actions.
      *
-     * @return All the hosted actions.
+     * @return All the running actions.
      */
-    public final AllocatableAction[] getHostedActions() {
-        return this.running.toArray(new AllocatableAction[running.size()]);
+    public final List<AllocatableAction> getHostedActions() {
+        ArrayList<AllocatableAction> hostedActions = new ArrayList<>(running.size() + this.blocked.size());
+        hostedActions.addAll(this.running);
+        hostedActions.addAll(this.blocked);
+        return hostedActions;
+    }
+
+    /**
+     * Requests the execution of an AllocatableAction on the resource. If there are not enough available resources, the
+     * action gets blocked and raises an exception; otherwise, the RS reserves the necessary resources to host it.
+     *
+     * @param action action to execute
+     * @return Resources allocated to host the execution of the task
+     * @throws BlockedActionException the RS has not enough resources to host the action and has enqueued its execution.
+     * @throws InvalidSchedulingException the RS has been removed.
+     */
+    public T hostAction(AllocatableAction action) throws BlockedActionException, InvalidSchedulingException {
+        if (removed && !action.isToStopResource()) {
+            LOGGER.warn("[ResourceScheduler] Action " + this + " submitted to removed resource " + this.getName());
+            throw new InvalidSchedulingException();
+        }
+        // LOGGER.info(this + " execution starts on worker " + selectedResource.getName());
+        // there are enough resources to host the actions and no waiting tasks in the queue
+        boolean reserve = action.isToReserveResources();
+        boolean blocked = false;
+        boolean enoughResources = false;
+        if (reserve) {
+            blocked = this.hasBlockedActions();
+            enoughResources = this.canRunNow(action.getAssignedImplementation());
+            if (blocked || !enoughResources) {
+                this.waitOnResource(action);
+                throw new BlockedActionException();
+            }
+        }
+
+        // Run action
+        return this.runAction(action);
     }
 
     /**
      * Adds a new running action on the resource.
      *
      * @param action AllocatableAction to add to the resource.
+     * @return Consumed resources to host the action.
      */
-    public final void hostAction(AllocatableAction action) {
+    @SuppressWarnings("unchecked")
+    private T runAction(AllocatableAction action) {
+        T consumption = null;
+        if (action.isToReserveResources()) {
+            Implementation impl = action.getAssignedImplementation();
+            consumption = this.myWorker.runTask((T) impl.getRequirements());
+	}
         if (action.getCoreId() != null) {
             OTelFacade.startTask(action.getCoreId());
         }
         LOGGER.debug("[ResourceScheduler] Host action " + action);
         this.running.add(action);
-
+        return consumption;
     }
 
     /**
@@ -434,7 +479,25 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
      */
     public final void unhostAction(AllocatableAction action) {
         LOGGER.debug("[ResourceScheduler] Unhost action " + action + " on resource " + getName());
-        this.running.remove(action);
+        if (this.running.remove(action)) {
+            T consumption = (T) action.getResourceConsumption();
+            if (action.isToReleaseResources()) {
+                this.myWorker.endTask(consumption);
+            }
+        } else {
+            this.unwaitOnResource(action);
+        }
+        this.tryToLaunchBlockedActions();
+    }
+
+    /**
+     * Releases some resources in the node that were expected to be used by a hosted task.
+     *
+     * @param idleResources resources not being used
+     */
+    public final void idleResources(T idleResources) {
+        this.myWorker.endTask(idleResources);
+        this.tryToLaunchBlockedActions();
     }
 
     /*
@@ -442,25 +505,14 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
      * BLOCKED ACTIONS MANAGEMENT
      * ***************************************************************************************************************
      */
-    /**
-     * Adds a blocked action on this worker.
-     *
-     * @param action Blocked AllocatableAction.
-     */
-    public final void waitOnResource(AllocatableAction action) {
+    private void waitOnResource(AllocatableAction action) {
         LOGGER.debug("[ResourceScheduler] Block action " + action + " on resource " + getName());
-        if (!removed) {
-            this.blocked.add(action);
-        } else {
-            LOGGER.warn("[ResourceScheduler] Blocked action " + action + " on removed resource " + getName()
-                + ". Trying to reschedule... ");
-            try {
-                unscheduleAction(action);
-                action.schedule(generateBlockedScore(action));
-            } catch (Exception e) {
-                ErrorManager.error("Error rescheduling action to a removed resource", e);
-            }
-        }
+        this.blocked.add(action);
+    }
+
+    private void unwaitOnResource(AllocatableAction action) {
+        LOGGER.debug("[ResourceScheduler] Unblock action " + action + " on resource " + getName());
+        this.blocked.remove(action);
     }
 
     /**
@@ -482,40 +534,22 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
     }
 
     /**
-     * Returns the first blocked action without removing it.
-     *
-     * @return The first blocked action.
-     */
-    public final AllocatableAction getFirstBlocked() {
-        return this.blocked.peek();
-    }
-
-    /**
-     * Removes the first blocked action.
-     */
-    public final void removeFirstBlocked() {
-        this.blocked.poll();
-    }
-
-    /**
      * Tries to launch blocked actions on resource. When an action cannot be launched, its successors are not tried
      */
-    @SuppressWarnings("unchecked")
-    public final void tryToLaunchBlockedActions() {
+    private void tryToLaunchBlockedActions() {
         LOGGER.debug("[ResourceScheduler] Try to launch blocked actions on resource " + getName());
         while (this.hasBlockedActions()) {
-            AllocatableAction firstBlocked = this.getFirstBlocked();
+            AllocatableAction firstBlocked = this.blocked.peek();
             Implementation selectedImplementation = firstBlocked.getAssignedImplementation();
-            if (!firstBlocked.isToReserveResources()
-                || myWorker.canRunNow((T) selectedImplementation.getRequirements())) {
-                try {
-                    firstBlocked.resumeExecution();
-                    this.removeFirstBlocked();
-                } catch (ActionNotWaitingException anwe) {
-                    // Not possible. If the task is in blocked list it is waiting
-                }
-            } else {
-                break;
+            if (firstBlocked.isToReserveResources() && !this.canRunNow(selectedImplementation)) {
+                return;
+            }
+            try {
+                T consumption = this.runAction(firstBlocked);
+                firstBlocked.resumeExecution(consumption);
+                this.blocked.poll();
+            } catch (ActionNotWaitingException anwe) {
+                // Not possible. If the task is in blocked list it is waiting
             }
         }
     }
@@ -655,7 +689,7 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
 
     /**
      * Dumps the cores and implementations information into a JSON object.
-     * 
+     *
      * @return A dump of the cores and implementations information in JSON format.
      */
     public JSONObject toJSONObject() {
@@ -676,7 +710,7 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
 
     /**
      * Updates the given JSON object with the current information.
-     * 
+     *
      * @param oldResource JSON object.
      * @return Updated JSON object containing a dump of the cores and implementations.
      */
@@ -709,7 +743,7 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
 
     /**
      * Marks the removed flag in the resource scheduler.
-     * 
+     *
      * @param removed Boolean indicating the removed state.
      */
     public void setRemoved(boolean removed) {
@@ -718,7 +752,7 @@ public class ResourceScheduler<T extends WorkerResourceDescription> {
 
     /**
      * Returns whether the RS is removed or not.
-     * 
+     *
      * @return {@literal true} if the RS is removed, {@literal false} otherwise.
      */
     public boolean isRemoved() {

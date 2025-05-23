@@ -154,8 +154,8 @@ get_implementation_parameters() {
             implNumArguments=10
             implArguments=(${@:2:$implNumArguments});;
           "COMPSs")
-              implNumArguments=6
-              implArguments=(${@:2:$implNumArguments});;
+            implNumArguments=7
+            implArguments=(${@:2:$implNumArguments});;
           "PYTHON_MPI")
             implNumArguments=6
             implArguments=(${@:2:$implNumArguments});;
@@ -368,9 +368,10 @@ printImplementationParams(){
         echo "[WORKER_COMMONS.SH]         - compss exec                        = ${implArguments[0]}"
         echo "[WORKER_COMMONS.SH]         - compss flags                       = ${implArguments[1]}"
         echo "[WORKER_COMMONS.SH]         - appName                            = ${implArguments[2]}"
-        echo "[WORKER_COMMONS.SH]         - workerInMaster                     = ${implArguments[3]}"
-        echo "[WORKER_COMMONS.SH]         - workingDir                         = ${implArguments[4]}"
-        echo "[WORKER_COMMONS.SH]         - failByEV                           = ${implArguments[5]}"
+        echo "[WORKER_COMMONS.SH]         - appParams                          = ${implArguments[3]}"
+        echo "[WORKER_COMMONS.SH]         - workerInMaster                     = ${implArguments[4]}"
+        echo "[WORKER_COMMONS.SH]         - workingDir                         = ${implArguments[5]}"
+        echo "[WORKER_COMMONS.SH]         - failByEV                           = ${implArguments[6]}"
         ;;
       "DECAF")
         echo "[WORKER_COMMONS.SH]         - Decaf dfScript                     = ${implArguments[0]}"
@@ -441,16 +442,21 @@ setup_extrae() {
         baseConfigFile="${extraeFile}"
     fi
 
-
-    tracing_output_dir="${workingDir}"
-    mkdir -p "${tracing_output_dir}"
-    extraeFile="${workingDir}/extrae.xml"
-    escaped_tracing_output_dir=$(echo "${tracing_output_dir}" | sed 's_/_\\/_g')
-    sed "s/{{TRACE_OUTPUT_DIR}}/${escaped_tracing_output_dir}/g" "${baseConfigFile}" > "${extraeFile}"
-
     if [ -z "$EXTRAE_HOME" ]; then
       export EXTRAE_HOME=${SCRIPT_DIR}/../../../../../Dependencies/extrae/
     fi
+
+    tracing_output_dir="${workingDir}"
+    mkdir -p "${tracing_output_dir}"
+
+    extraeFile="${workingDir}/extrae.xml"
+    cp "${baseConfigFile}" "${extraeFile}"
+
+    escaped_extrae_home=$(echo "${EXTRAE_HOME}" | sed 's_/_\\/_g')
+    sed -i "s/{{EXTRAE_HOME}}/${escaped_extrae_home}/g" "${extraeFile}"
+
+    escaped_tracing_output_dir=$(echo "${tracing_output_dir}" | sed 's_/_\\/_g')
+    sed -i "s/{{TRACE_OUTPUT_DIR}}/${escaped_tracing_output_dir}/g" "${extraeFile}"
 
     export EXTRAE_LIB=${EXTRAE_HOME}/lib
     export LD_LIBRARY_PATH=${EXTRAE_LIB}:${LD_LIBRARY_PATH}
@@ -520,7 +526,8 @@ setup_environment(){
   # Export environment
   #added
   #export CLASSPATH=$cpNW:$CLASSPATH
-  #export PYTHONPATH=$pythonpath:$PYTHONPATH
+  COMPSS_HOME="${SCRIPT_DIR}/../../../../.."
+  export PYTHONPATH=$pythonpath:$PYTHONPATH:${COMPSS_HOME}/Dependencies/threadpoolctl/
   #export LD_LIBRARY_PATH=$libPathNW:${SCRIPT_DIR}/../../../../../Bindings/bindings-common/lib:${SCRIPT_DIR}/../../../../../Bindings/c/lib:$LD_LIBRARY_PATH
 }
 
@@ -575,7 +582,7 @@ set_env() {
 
     # Look for the JVM Library
     if [ -n "${JAVA_HOME}" ]; then
-      if [ -d "${JAVA_HOME}/jre/lib/" ]; then #Java 8 case 
+      if [ -d "${JAVA_HOME}/jre/lib/" ]; then #Java 8 case
         libjava=$(find "${JAVA_HOME}"/jre/lib/ -name libjvm.so | head -n 1)
         if [ -z "$libjava" ]; then
           libjava=$(find "${JAVA_HOME}"/jre/lib/ -name libjvm.dylib | head -n 1)
@@ -691,5 +698,3 @@ get_all_parameters(){
   get_invocation_params ${remainingParams[@]}
 
 }
-
-

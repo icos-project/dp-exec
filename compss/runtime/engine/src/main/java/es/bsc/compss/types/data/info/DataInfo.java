@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,56 +16,76 @@
  */
 package es.bsc.compss.types.data.info;
 
-import es.bsc.compss.comm.Comm;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.types.Application;
-import es.bsc.compss.types.data.DataVersion;
+import es.bsc.compss.log.Loggers;
+import es.bsc.compss.types.AbstractTask;
+import es.bsc.compss.types.Task;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.ReadingDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.WritingDataAccessId;
+import es.bsc.compss.types.data.accessid.RAccessId;
+import es.bsc.compss.types.data.accessid.RWAccessId;
+import es.bsc.compss.types.data.accessid.WAccessId;
+import es.bsc.compss.types.data.accessparams.AccessParams.AccessMode;
+import es.bsc.compss.types.data.params.DataOwner;
 import es.bsc.compss.types.data.params.DataParams;
+import es.bsc.compss.types.parameter.impl.DependencyParameter;
+import es.bsc.compss.types.request.ap.RegisterDataAccessRequest;
 import es.bsc.compss.types.request.exceptions.NonExistingValueException;
 
 import java.util.LinkedList;
+import java.util.List;
 import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 
 // Information about a datum and its versions
 public abstract class DataInfo<T extends DataParams> {
 
+    // CONSTANTS
     private static final int FIRST_FILE_ID = 1;
     private static final int FIRST_VERSION_ID = 1;
 
-    protected static int nextDataId = FIRST_FILE_ID;
+    // Component logger
+    protected static final Logger LOGGER = LogManager.getLogger(Loggers.TP_COMP);
+    protected static final boolean DEBUG = LOGGER.isDebugEnabled();
+
+    private static int nextDataId = FIRST_FILE_ID;
 
     // Data identifier
     protected final int dataId;
     // Generating application
     protected final T params;
+    protected final DataOwner owner;
 
     // Current version
     protected DataVersion currentVersion;
     // Data and version identifier management
-    protected int currentVersionId;
+    private int currentVersionId;
 
     // Versions of the datum
     // Map: version identifier -> version
-    protected TreeMap<Integer, DataVersion> versions;
-    // private boolean toDelete;
+    private TreeMap<Integer, DataVersion> versions;
 
-    protected int deletionBlocks;
-    protected final LinkedList<DataVersion> pendingDeletions;
-    protected final LinkedList<Integer> canceledVersions;
+    private int deletionBlocks;
+    private final LinkedList<DataVersion> pendingDeletions;
+    private final LinkedList<Integer> canceledVersions;
 
-    protected boolean deleted;
+    private boolean deleted;
 
 
     /**
      * Creates a new DataInfo instance with and registers a new LogicalData.
-     * 
+     *
      * @param data description of the data related to the info
+     * @param owner owner of the data being created
      */
-    public DataInfo(T data) {
+    public DataInfo(T data, DataOwner owner) {
         this.dataId = nextDataId++;
         this.params = data;
+        this.owner = owner;
         this.versions = new TreeMap<>();
         this.currentVersionId = FIRST_VERSION_ID;
         this.currentVersion = new DataVersion(dataId, 1, null);
@@ -87,29 +107,43 @@ public abstract class DataInfo<T extends DataParams> {
 
     /**
      * Returns the description of the data related to the info.
-     * 
+     *
      * @return description of the data related to the info
      */
-    public T getParams() {
+    public final T getParams() {
         return params;
     }
 
     /**
-     * Returns the application generating the DataInfo.
-     * 
-     * @return the application generating the DataInfo.
+     * Returns the owner of the data.
+     *
+     * @return owner of the data
      */
-    public Application getGeneratingAppId() {
-        return this.params.getApp();
+    public DataOwner getOwner() {
+        return owner;
     }
 
     /**
-     * Returns the current version Id.
+     * Returns the first data version.
      *
-     * @return The current version Id.
+     * @return The first data version.
      */
-    public final int getCurrentVersionId() {
-        return this.currentVersionId;
+    public final DataVersion getFirstVersion() {
+        return versions.get(1);
+    }
+
+    /**
+     * Registers a new version for the data.
+     */
+    protected void newVersion() {
+        this.currentVersionId++;
+        DataVersion validPred = currentVersion;
+        if (validPred.hasBeenCancelled()) {
+            validPred = validPred.getPreviousValidPredecessor();
+        }
+        DataVersion newVersion = new DataVersion(this.dataId, this.currentVersionId, validPred);
+        this.versions.put(this.currentVersionId, newVersion);
+        this.currentVersion = newVersion;
     }
 
     /**
@@ -122,88 +156,212 @@ public abstract class DataInfo<T extends DataParams> {
     }
 
     /**
-     * Returns the previous data version.
+     * Reconstruct the last access to the data as if were of a given mode.
      *
-     * @return The previous data version.
+     * @param mode mode being access
      */
-    public final DataVersion getPreviousDataVersion() {
-        return this.versions.get(this.currentVersionId - 1);
+    public final EngineDataAccessId getLastAccess(AccessMode mode) {
+        // Version management
+        EngineDataAccessId daId = null;
+        if (this.currentVersion != null) {
+            switch (mode) {
+                case C:
+                case R:
+                    daId = new RAccessId(this, this.currentVersion);
+                    break;
+                case W:
+                    daId = new WAccessId(this, this.currentVersion);
+                    break;
+                case CV:
+                case RW:
+                    DataVersion readInstance = this.versions.get(this.currentVersionId - 1);
+                    if (readInstance != null) {
+                        daId = new RWAccessId(this, readInstance, this.currentVersion);
+                    } else {
+                        LOGGER.warn("Previous instance for data" + this.dataId + " is null.");
+                    }
+                    break;
+            }
+        } else {
+            LOGGER.warn("Current instance for data" + this.dataId + " is null.");
+        }
+        return daId;
     }
 
-    /**
-     * Marks the data to be read.
+    /*
+     * Registers a future lecture of the current version of the data.
      */
-    public final void willBeRead() {
-        this.currentVersion.versionUsed();
+    protected void currentVersionWillBeRead() {
         this.currentVersion.willBeRead();
+        this.currentVersion.versionUsed();
+    }
+
+    /*
+     * Registers a future writing of the current version of the data.
+     */
+    protected void currentVersionWillBeWritten() {
+        this.currentVersion.willBeWritten();
+        this.currentVersion.versionUsed();
     }
 
     /**
-     * Returns whether the data is expected to be read or not.
+     * Registers a new access to the data.
      *
-     * @return {@code true} if there are pending reads to the data, {@code false} otherwise.
+     * @param mode access mode of the operation performed on the data
+     * @return description of the access performed
      */
-    public final boolean isToBeRead() {
-        return this.currentVersion.hasPendingLectures();
+    public abstract EngineDataAccessId willAccess(AccessMode mode);
+
+    /**
+     * Tries to remove the given version {@code versionId}.
+     *
+     * @param versionId Version Id.
+     */
+    private void tryRemoveVersion(Integer versionId) {
+        DataVersion version = this.versions.get(versionId);
+        if (version != null && version.markToDelete()) {
+            version.getDataInstanceId().delete();
+            this.versions.remove(versionId);
+        }
     }
 
     /**
-     * Returns whether the data has been cancelled or not.
+     * Marks that a given version {@code dAccId} has been accessed.
      *
-     * @return {@code true} if the data has been cancelled, {@code false} otherwise.
+     * @param dAccId DataAccessId.
      */
-    public final boolean hasBeenCanceled() {
-        return this.currentVersion.hasBeenUsed();
+    public void committedAccess(EngineDataAccessId dAccId) {
+        Integer rVersionId = null;
+        Integer wVersionId;
+
+        if (dAccId.isRead()) {
+            rVersionId = ((ReadingDataAccessId) dAccId).getReadDataInstance().getVersionId();
+            this.versionHasBeenRead(rVersionId);
+        }
+
+        if (dAccId.isWrite()) {
+            wVersionId = ((WritingDataAccessId) dAccId).getWrittenDataInstance().getVersionId();
+            if (rVersionId == null) {
+                rVersionId = wVersionId - 1;
+            }
+            this.tryRemoveVersion(rVersionId);
+            this.versionHasBeenWritten(wVersionId);
+        }
     }
 
     /**
      * Returns whether the specified version {@code versionId} has been read or not.
      *
      * @param versionId Version Id.
-     * @return {@code true} if the version Id has no pending reads, {@code false} otherwise.
      */
-    public final boolean versionHasBeenRead(int versionId) {
+    private void versionHasBeenRead(int versionId) {
         DataVersion readVersion = this.versions.get(versionId);
         if (readVersion.hasBeenRead()) {
-            Comm.removeData(readVersion.getDataInstanceId().getRenaming(), true);
+            readVersion.getDataInstanceId().delete();
             this.versions.remove(versionId);
-            // return (this.toDelete && versions.size() == 0);
-            return this.versions.isEmpty();
         }
-        return false;
-    }
-
-    /**
-     * Marks the data to be written.
-     */
-    public void willBeWritten() {
-        this.currentVersionId++;
-        DataVersion validPred = currentVersion;
-        if (validPred.hasBeenCancelled()) {
-            validPred = validPred.getPreviousValidPredecessor();
-        }
-        DataVersion newVersion = new DataVersion(this.dataId, this.currentVersionId, validPred);
-        newVersion.willBeWritten();
-        this.versions.put(this.currentVersionId, newVersion);
-        this.currentVersion = newVersion;
-        this.currentVersion.versionUsed();
     }
 
     /**
      * Returns whether the data has already been written or not.
      *
      * @param versionId Version Id.
-     * @return {@code true} if the data has been written, {@code false} otherwise.
      */
-    public final boolean versionHasBeenWritten(int versionId) {
+    private void versionHasBeenWritten(int versionId) {
         DataVersion writtenVersion = versions.get(versionId);
         if (writtenVersion.hasBeenWritten()) {
-            Comm.removeData(writtenVersion.getDataInstanceId().getRenaming(), true);
+            writtenVersion.getDataInstanceId().delete();
             this.versions.remove(versionId);
-            // return (this.toDelete && versions.size() == 0);
-            return this.versions.isEmpty();
         }
-        return false;
+    }
+
+    /**
+     * Returns whether the data has been used or not.
+     *
+     * @return {@code true} if the data has been used, {@code false} otherwise.
+     */
+    public final boolean isCurrentVersionBeenUsed() {
+        return this.currentVersion.hasBeenUsed();
+    }
+
+    /**
+     * Removes the versions associated with the given DataAccessId {@code dAccId} to if the task was canceled or not.
+     *
+     * @param dAccId DataAccessId.
+     * @param keepModified {@literal true}, if the value resulting from the access should be kept
+     */
+    public void cancelledAccess(EngineDataAccessId dAccId, boolean keepModified) {
+        Integer rVersionId;
+        Integer wVersionId;
+        switch (dAccId.getDirection()) {
+            case C:
+            case R:
+                rVersionId = ((RAccessId) dAccId).getReadDataInstance().getVersionId();
+                this.canceledReadVersion(rVersionId);
+                break;
+            case CV:
+            case RW:
+                rVersionId = ((RWAccessId) dAccId).getReadDataInstance().getVersionId();
+                wVersionId = ((RWAccessId) dAccId).getWrittenDataInstance().getVersionId();
+                if (keepModified) {
+                    this.versionHasBeenRead(rVersionId);
+                    // read data version can be removed
+                    this.tryRemoveVersion(rVersionId);
+                    this.versionHasBeenWritten(wVersionId);
+                } else {
+                    this.canceledReadVersion(rVersionId);
+                    this.canceledWriteVersion(wVersionId);
+                }
+                break;
+            default:// case W:
+                wVersionId = ((WAccessId) dAccId).getWrittenDataInstance().getVersionId();
+                this.canceledWriteVersion(wVersionId);
+                break;
+        }
+    }
+
+    /**
+     * Cancels the given read version {@code versionId}.
+     *
+     * @param versionId Version Id.
+     */
+    private void canceledReadVersion(Integer versionId) {
+        DataVersion readVersion = this.versions.get(versionId);
+        if (!deleted && readVersion.isToDelete() && readVersion.hasBeenUsed()) {
+            readVersion.unmarkToDelete();
+        }
+        if (readVersion.hasBeenRead()) {
+            readVersion.getDataInstanceId().delete();
+            this.versions.remove(versionId);
+        }
+    }
+
+    /**
+     * Cancels the given version {@code versionId}.
+     *
+     * @param versionId Version Id.
+     */
+    private void canceledWriteVersion(Integer versionId) {
+        DataVersion version = this.versions.get(versionId);
+        version.versionCancelled();
+        this.canceledVersions.add(versionId);
+        if (versionId == currentVersionId) {
+            Integer lastVersion = this.currentVersionId;
+            while (this.canceledVersions.contains(lastVersion)) {
+                tryRemoveVersion(lastVersion);
+                lastVersion = lastVersion - 1;
+            }
+            if (lastVersion > 1) {
+                this.currentVersionId = lastVersion;
+                this.currentVersion = this.versions.get(this.currentVersionId);
+            } else if (lastVersion == 1) {
+                DataVersion firstVersion = this.getFirstVersion();
+                if (firstVersion != null && firstVersion.hasBeenUsed()) {
+                    this.currentVersionId = lastVersion;
+                    this.currentVersion = firstVersion;
+                }
+            }
+        }
     }
 
     /**
@@ -223,7 +381,7 @@ public abstract class DataInfo<T extends DataParams> {
         if (this.deletionBlocks == 0) {
             for (DataVersion version : this.pendingDeletions) {
                 if (version.markToDelete()) {
-                    Comm.removeData(version.getDataInstanceId().getRenaming(), true);
+                    version.getDataInstanceId().delete();
                     this.versions.remove(version.getDataInstanceId().getVersionId());
                 }
             }
@@ -237,27 +395,22 @@ public abstract class DataInfo<T extends DataParams> {
     /**
      * Delete DataInfo (can be overwritten by implementations).
      */
-    public boolean delete() {
+    public void delete() {
         this.deleted = true;
         if (this.deletionBlocks > 0) {
             this.pendingDeletions.addAll(this.versions.values());
         } else {
             LinkedList<Integer> removedVersions = new LinkedList<>();
             for (DataVersion version : this.versions.values()) {
-                String sourceName = version.getDataInstanceId().getRenaming();
                 if (version.markToDelete()) {
-                    Comm.removeData(sourceName, true);
+                    version.getDataInstanceId().delete();
                     removedVersions.add(version.getDataInstanceId().getVersionId());
                 }
             }
             for (int versionId : removedVersions) {
                 this.versions.remove(versionId);
             }
-            if (this.versions.isEmpty()) {
-                return true;
-            }
         }
-        return false;
     }
 
     /**
@@ -278,83 +431,50 @@ public abstract class DataInfo<T extends DataParams> {
     }
 
     /**
-     * Returns the first data version.
+     * Registers a task reading the data value.
      *
-     * @return The first data version.
+     * @param t task reading the value
+     * @param dp parameter corresponding to the data value
+     * @param isConcurrent {@literal true} if the reading was due to a concuerrent access; {@literal false} otherwise.
+     * @return {@literal true}, if an edge has been printed; {@literal false}, otherwise.
      */
-    public final DataVersion getFirstVersion() {
-        return versions.get(1);
-    }
+    public abstract boolean readValue(Task t, DependencyParameter dp, boolean isConcurrent);
 
     /**
-     * Tries to remove the given version {@code versionId}.
+     * Registers a task writting on the data value.
      *
-     * @param versionId Version Id.
+     * @param t task writting the value
+     * @param dp parameter corresponding to the data value
+     * @param isConcurrent {@literal true} if the writting was due to a concuerrent access; {@literal false} otherwise.
      */
-    public final void tryRemoveVersion(Integer versionId) {
-        DataVersion readVersion = this.versions.get(versionId);
-
-        if (readVersion != null && readVersion.markToDelete()) {
-            Comm.removeData(readVersion.getDataInstanceId().getRenaming(), true);
-            this.versions.remove(versionId);
-        }
-
-    }
+    public abstract void writeValue(Task t, DependencyParameter dp, boolean isConcurrent);
 
     /**
-     * Cancels the given read version {@code versionId}.
+     * Registers an access from the application main code to the value.
      *
-     * @param versionId Version Id.
-     * @return {@literal true} if there are no more versions for the data; {@literal false} otherwise.
+     * @param rdar Request to access the data value
+     * @param access data access description with instances
      */
-    public final boolean canceledReadVersion(Integer versionId) {
-        DataVersion readVersion = this.versions.get(versionId);
-        if (!deleted && readVersion.isToDelete() && readVersion.hasBeenUsed()) {
-            readVersion.unmarkToDelete();
-        }
-        if (readVersion.hasBeenRead()) {
-            Comm.removeData(readVersion.getDataInstanceId().getRenaming(), true);
-            this.versions.remove(versionId);
-            // return (this.toDelete && versions.size() == 0);
-            return this.versions.isEmpty();
-        }
-        return false;
-
-    }
+    public abstract void mainAccess(RegisterDataAccessRequest rdar, EngineDataAccessId access);
 
     /**
-     * Cancels the given version {@code versionId}.
+     * Registers a data producer as completed.
      *
-     * @param versionId Version Id.
-     * @return true if no more versions
+     * @param task Data Producer
      */
-    public final boolean canceledWriteVersion(Integer versionId) {
-        DataVersion version = this.versions.get(versionId);
-        version.versionCancelled();
-        this.canceledVersions.add(versionId);
-        if (versionId == currentVersionId) {
-            Integer lastVersion = this.currentVersionId;
-            while (this.canceledVersions.contains(lastVersion)) {
-                tryRemoveVersion(lastVersion);
-                lastVersion = lastVersion - 1;
-            }
-            if (lastVersion > 1) {
-                this.currentVersionId = lastVersion;
-                this.currentVersion = this.versions.get(this.currentVersionId);
-                return false;
-            } else if (lastVersion == 1) {
-                DataVersion firstVersion = this.getFirstVersion();
-                if (firstVersion != null && firstVersion.hasBeenUsed()) {
-                    this.currentVersionId = lastVersion;
-                    this.currentVersion = firstVersion;
-                    return false;
-                } else {
-                    return true;
-                }
-            } else {
-                return true;
-            }
-        }
-        return false;
-    }
+    public abstract void completedProducer(AbstractTask task);
+
+    /**
+     * Obtains the task/task group producing the last version of the data.
+     * 
+     * @return the task/task group producing the last version of the data
+     */
+    public abstract AbstractTask getLastVersionProducer();
+
+    /**
+     * Returns the last Tasks producing the value.
+     *
+     * @return last tasks generating the value.
+     */
+    public abstract List<AbstractTask> getDataWriters();
 }

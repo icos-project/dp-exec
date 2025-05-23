@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -82,8 +82,8 @@ public class TaskDispatcher implements Runnable, ResourceUser, ActionOrchestrato
     private static final Logger LOGGER = LogManager.getLogger(Loggers.TD_COMP);
     private static final boolean DEBUG = LOGGER.isDebugEnabled();
 
-    private static final String ERR_LOAD_SCHEDULER = "Error loading scheduler";
     private static final String ERROR_QUEUE_OFFER = "ERROR: TaskDispatcher queue offer error on ";
+    private static final String ERR_LOAD_SCHEDULER = "Error loading scheduler";
 
 
     /**
@@ -105,11 +105,12 @@ public class TaskDispatcher implements Runnable, ResourceUser, ActionOrchestrato
         ResourceManager.load(this);
 
         // Initialize structures
-        scheduler = constructScheduler();
-        if (scheduler == null) {
-            ErrorManager.fatal(ERR_LOAD_SCHEDULER);
+        String schedFQN = System.getProperty(COMPSsConstants.SCHEDULER);
+        try {
+            scheduler = TaskScheduler.constructScheduler(schedFQN, this);
+        } catch (Exception e) {
+            ErrorManager.fatal(ERR_LOAD_SCHEDULER, e);
         }
-        scheduler.setOrchestrator(this);
 
         // Insert workers
         for (Worker<?> worker : ResourceManager.getStaticResources()) {
@@ -205,7 +206,7 @@ public class TaskDispatcher implements Runnable, ResourceUser, ActionOrchestrato
 
     /**
      * Cancels the execution of a set of tasks.
-     * 
+     *
      * @param task task to cancel
      * @param listener object to notify when the tasks have been cancelled
      */
@@ -351,7 +352,7 @@ public class TaskDispatcher implements Runnable, ResourceUser, ActionOrchestrato
     public void registerNewCoreElement(CoreElementDefinition ced) {
 
         if (DEBUG) {
-            LOGGER.debug("Registering new CoreElement");
+            LOGGER.debug("Requesting the registration of new CoreElement " + ced);
         }
 
         Semaphore sem = new Semaphore(0);
@@ -406,22 +407,6 @@ public class TaskDispatcher implements Runnable, ResourceUser, ActionOrchestrato
         }
 
         Classpath.loadJarsInPath(compssHome + SCHEDULERS_REL_PATH, LOGGER);
-    }
-
-    private TaskScheduler constructScheduler() {
-        TaskScheduler scheduler = null;
-        try {
-            String schedFQN = System.getProperty(COMPSsConstants.SCHEDULER);
-            Class<?> schedClass = Class.forName(schedFQN);
-            Constructor<?> schedCnstr = schedClass.getDeclaredConstructors()[0];
-            scheduler = (TaskScheduler) schedCnstr.newInstance();
-            if (DEBUG) {
-                LOGGER.debug("Loaded scheduler " + scheduler);
-            }
-        } catch (Exception e) {
-            ErrorManager.fatal(ERR_LOAD_SCHEDULER, e);
-        }
-        return scheduler;
     }
 
 }

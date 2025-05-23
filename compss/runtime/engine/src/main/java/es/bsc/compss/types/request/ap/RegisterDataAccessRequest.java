@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,23 +17,24 @@
 package es.bsc.compss.types.request.ap;
 
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.TaskListener;
-import es.bsc.compss.types.data.DataAccessId;
+import es.bsc.compss.types.data.access.MainAccess;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
 import es.bsc.compss.types.data.accessparams.AccessParams;
+import es.bsc.compss.types.data.params.DataParams;
 import es.bsc.compss.types.request.exceptions.ValueUnawareRuntimeException;
 import es.bsc.compss.types.tracing.TraceEvent;
 
 import java.util.concurrent.Semaphore;
 
 
-public class RegisterDataAccessRequest extends APRequest implements TaskListener {
+public class RegisterDataAccessRequest<V, D extends DataParams, P extends AccessParams<D>>
+    implements APRequest, TaskListener {
 
-    private final AccessParams accessParams;
-    private DataAccessId accessId;
+    private final MainAccess<V, D, P> access;
+    private EngineDataAccessId accessId;
 
     private int pendingOperation = 0;
     private boolean released = false;
@@ -44,10 +45,10 @@ public class RegisterDataAccessRequest extends APRequest implements TaskListener
     /**
      * Creates a new request to register a data access.
      *
-     * @param access AccessParams to register.
+     * @param access description of the access done by the main
      */
-    public RegisterDataAccessRequest(AccessParams access) {
-        this.accessParams = access;
+    public RegisterDataAccessRequest(MainAccess<V, D, P> access) {
+        this.access = access;
         this.sem = new Semaphore(0);
     }
 
@@ -56,17 +57,8 @@ public class RegisterDataAccessRequest extends APRequest implements TaskListener
      *
      * @return The associated access parameters.
      */
-    public AccessParams getAccessParams() {
-        return this.accessParams;
-    }
-
-    /**
-     * Returns the associated access mode to the data.
-     *
-     * @return The associated access mode to the data.
-     */
-    public AccessParams.AccessMode getTaskAccessMode() {
-        return this.accessParams.getMode();
+    public MainAccess<V, D, P> getAccess() {
+        return this.access;
     }
 
     /**
@@ -74,14 +66,14 @@ public class RegisterDataAccessRequest extends APRequest implements TaskListener
      *
      * @return The waiting semaphore.
      */
-    public DataAccessId getAccessId() {
+    public EngineDataAccessId getAccessId() {
         return this.accessId;
     }
 
     @Override
-    public void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td) {
+    public void process(AccessProcessor ap, TaskDispatcher td) {
         try {
-            this.accessId = ta.processMainAccess(this);
+            this.accessId = this.access.register(this);
         } catch (ValueUnawareRuntimeException e) {
             this.unawareException = e;
         }
@@ -93,7 +85,7 @@ public class RegisterDataAccessRequest extends APRequest implements TaskListener
 
     /**
      * Waits for the value's producing tasks to complete releasing and recovering the resources if needed.
-     * 
+     *
      * @throws ValueUnawareRuntimeException the runtime is not aware of the last value of the accessed data
      */
     public void waitForCompletion() throws ValueUnawareRuntimeException {
@@ -101,7 +93,7 @@ public class RegisterDataAccessRequest extends APRequest implements TaskListener
         sem.acquireUninterruptibly();
 
         boolean stalled = false;
-        Application app = this.accessParams.getApp();
+        Application app = this.access.getApp();
         synchronized (this) {
             LOGGER.info("App " + app.getId() + " waits for data to be produced");
             if (!released) {

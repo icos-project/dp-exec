@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -64,9 +64,11 @@ from pycompss.util.interactive.flags import check_flags
 from pycompss.util.interactive.flags import print_flag_issues
 from pycompss.util.interactive.utils import parameters_to_dict
 from pycompss.util.logger.helpers import clean_log_configs
-from pycompss.util.logger.helpers import get_logging_cfg_file
 from pycompss.util.logger.helpers import init_logging
+from pycompss.util.logger.remittent import LOG_REMITTENT
 from pycompss.util.process.manager import initialize_multiprocessing
+from pycompss.util.process.preloader import preimports
+from pycompss.util.process.preloader import preload_imports
 from pycompss.util.storages.persistent import master_init_storage
 from pycompss.util.storages.persistent import master_stop_storage
 
@@ -254,17 +256,19 @@ def compss_main() -> None:
     # Setup logging
     binding_log_path = get_log_path()
     GLOBALS.set_log_directory(binding_log_path)
-    log_path = os.path.join(
-        str(os.getenv("COMPSS_HOME")), "Bindings", "python", "3", "log"
-    )
-    logging_cfg_file = get_logging_cfg_file(log_level)
-    init_logging(os.path.join(log_path, logging_cfg_file), binding_log_path)
+    init_logging(LOG_REMITTENT.MASTER, log_level, binding_log_path)
     logger = logging.getLogger("pycompss.runtime.launch")
     LAUNCH_STATUS.set_logger(logger)
 
     # Setup tmp path
     binding_tmp_path = get_tmp_path()  # master.workingDir
     GLOBALS.set_temporary_directory(binding_tmp_path)
+
+    # Pre-load imports
+    if preimports():
+        if __debug__:
+            logger.debug("Preloading imports")
+        preload_imports(logger, "", "")
 
     # Get JVM options
     # jvm_opts = os.environ["JVM_OPTIONS_FILE"]
@@ -626,15 +630,7 @@ def launch_pycompss_application(
     # Setup logging
     binding_log_path = get_log_path()
     GLOBALS.set_log_directory(binding_log_path)
-    log_path = os.path.join(
-        all_vars["compss_home"],
-        "Bindings",
-        "python",
-        str(all_vars["major_version"]),
-        "log",
-    )
-    logging_cfg_file = get_logging_cfg_file(log_level)
-    init_logging(os.path.join(log_path, logging_cfg_file), binding_log_path)
+    init_logging(LOG_REMITTENT.MASTER, log_level, binding_log_path)
     logger = logging.getLogger("pycompss.runtime.launch")
 
     # Setup tmp path
@@ -642,7 +638,7 @@ def launch_pycompss_application(
     GLOBALS.set_temporary_directory(binding_tmp_path)
 
     logger.debug("--- START ---")
-    logger.debug("PyCOMPSs Log path: %s", log_path)
+    logger.debug("PyCOMPSs Log path: %s", binding_log_path)
 
     if storage_impl and storage_conf:
         logger.debug("Starting storage")

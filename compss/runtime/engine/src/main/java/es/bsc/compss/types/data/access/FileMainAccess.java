@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ package es.bsc.compss.types.data.access;
 import es.bsc.compss.comm.Comm;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataAccessId;
-import es.bsc.compss.types.data.DataAccessId.ReadingDataAccessId;
-import es.bsc.compss.types.data.DataAccessId.WritingDataAccessId;
-import es.bsc.compss.types.data.DataInstanceId;
+import es.bsc.compss.types.data.EngineDataInstanceId;
 import es.bsc.compss.types.data.LogicalData;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.ReadingDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.WritingDataAccessId;
 import es.bsc.compss.types.data.accessparams.FileAccessParams;
 import es.bsc.compss.types.data.location.DataLocation;
 import es.bsc.compss.types.data.location.ProtocolType;
@@ -51,11 +51,11 @@ public class FileMainAccess<D extends FileData, P extends FileAccessParams<D>> e
     public static FileMainAccess<FileData, FileAccessParams<FileData>> constructFMA(Application app, Direction dir,
         DataLocation loc) {
         FileAccessParams<FileData> f = FileAccessParams.constructFAP(app, dir, loc);
-        return new FileMainAccess(f);
+        return new FileMainAccess(app, f);
     }
 
-    protected FileMainAccess(P params) {
-        super(params);
+    protected FileMainAccess(Application app, P params) {
+        super(app, params);
     }
 
     @Override
@@ -64,9 +64,9 @@ public class FileMainAccess<D extends FileData, P extends FileAccessParams<D>> e
     }
 
     @Override
-    public final DataLocation fetch(DataAccessId daId) {
+    public final DataLocation fetch(EngineDataAccessId daId) {
         // Get target information
-        DataInstanceId tgtDiId;
+        EngineDataInstanceId tgtDiId;
         if (daId.isWrite()) {
             WritingDataAccessId wdaId = (WritingDataAccessId) daId;
             tgtDiId = wdaId.getWrittenDataInstance();
@@ -78,7 +78,7 @@ public class FileMainAccess<D extends FileData, P extends FileAccessParams<D>> e
         String targetName = tgtDiId.getRenaming();
 
         String dataDesc = this.getParameters().getDataDescription();
-        LOGGER.debug("Openning file " + targetName);
+        LOGGER_API.debug("Openning file " + targetName);
 
         DataLocation tgtLocation = this.getParameters().getLocation();
         if (daId.isRead()) {
@@ -92,25 +92,25 @@ public class FileMainAccess<D extends FileData, P extends FileAccessParams<D>> e
 
         if (daId.isWrite()) {
             // Mode contains W
-            LOGGER.debug("Access to " + dataDesc + " mode contains W, register new writer");
+            LOGGER_API.debug("Access to " + dataDesc + " mode contains W, register new writer");
             String targetPath = Comm.getAppHost().getWorkingDirectory() + targetName;
             tgtLocation = createExpectedLocalLocation(targetPath);
             Comm.registerLocation(targetName, tgtLocation);
         }
-        if (DEBUG) {
-            LOGGER.debug(dataDesc + " located on " + (tgtLocation != null ? tgtLocation.toString() : "null"));
+        if (API_DEBUG) {
+            LOGGER_API.debug(dataDesc + " located on " + (tgtLocation != null ? tgtLocation.toString() : "null"));
         }
         return tgtLocation;
     }
 
     private DataLocation fetchPSCO(String pscoId, String targetName) {
-        LOGGER.debug("Auto-release");
+        LOGGER_API.debug("Auto-release");
         // Create location
         DataLocation targetLocation;
         targetLocation = createPSCOLocation(pscoId);
         Comm.registerLocation(targetName, targetLocation);
         // Register target location
-        LOGGER.debug("Setting target location to " + targetLocation);
+        LOGGER_API.debug("Setting target location to " + targetLocation);
         return targetLocation;
     }
 
@@ -119,8 +119,8 @@ public class FileMainAccess<D extends FileData, P extends FileAccessParams<D>> e
         return createLocalLocation(targetURI);
     }
 
-    protected DataLocation fetchData(DataAccessId daId, String targetName) {
-        LOGGER.debug("Asking for transfer");
+    protected DataLocation fetchData(EngineDataAccessId daId, String targetName) {
+        LOGGER_API.debug("Asking for transfer");
         ReadingDataAccessId rdaId = (ReadingDataAccessId) daId;
         LogicalData srcData = rdaId.getReadDataInstance().getData();
         Semaphore sem = new Semaphore(0);
@@ -158,4 +158,8 @@ public class FileMainAccess<D extends FileData, P extends FileAccessParams<D>> e
         return false;
     }
 
+    @Override
+    public boolean resultRemainOnMain() {
+        return false;
+    }
 }

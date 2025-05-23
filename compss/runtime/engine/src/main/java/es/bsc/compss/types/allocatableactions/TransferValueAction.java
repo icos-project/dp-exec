@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@ import es.bsc.compss.scheduler.types.AllocatableAction;
 import es.bsc.compss.scheduler.types.SchedulingInformation;
 import es.bsc.compss.scheduler.types.Score;
 import es.bsc.compss.types.annotations.parameter.OnFailure;
-import es.bsc.compss.types.data.DataAccessId;
-import es.bsc.compss.types.data.DataAccessId.ReadingDataAccessId;
-import es.bsc.compss.types.data.DataAccessId.WritingDataAccessId;
 import es.bsc.compss.types.data.LogicalData;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.ReadingDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.WritingDataAccessId;
 import es.bsc.compss.types.data.listener.EventListener;
 import es.bsc.compss.types.data.operation.DataOperation;
 import es.bsc.compss.types.implementations.AbstractMethodImplementation;
@@ -120,7 +120,7 @@ public class TransferValueAction<T extends WorkerResourceDescription> extends Al
         }
 
         Worker<? extends WorkerResourceDescription> w = getAssignedResource().getResource();
-        DataAccessId access = dataToTransfer.getDataAccessId();
+        EngineDataAccessId access = dataToTransfer.getDataAccessId();
         if (access.isRead()) {
             listener.addOperation();
             LogicalData srcData = ((ReadingDataAccessId) access).getReadDataInstance().getData();
@@ -195,8 +195,9 @@ public class TransferValueAction<T extends WorkerResourceDescription> extends Al
     }
 
     @Override
-    protected void doCanceled() {
+    protected boolean doCanceled() {
         ErrorManager.warn("Transfer of data " + dataToTransfer.getName() + " to " + receiver + " has been cancelled.");
+        return true;
     }
 
     @Override

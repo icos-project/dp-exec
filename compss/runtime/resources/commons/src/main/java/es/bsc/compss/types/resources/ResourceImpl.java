@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -585,7 +585,7 @@ public abstract class ResourceImpl implements Comparable<Resource>, Resource, No
 
         COMPSsNode masterNode = Comm.getAppHost().getNode();
 
-        // TODO: this block should prolly be on the obtain data function
+        // TODO: this block should probably be on the obtain data function
         Path pathPath = Paths.get(folderPath);
         try {
             Files.createDirectories(pathPath);

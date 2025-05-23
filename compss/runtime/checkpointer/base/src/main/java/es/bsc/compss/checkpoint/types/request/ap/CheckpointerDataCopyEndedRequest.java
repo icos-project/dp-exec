@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@ package es.bsc.compss.checkpoint.types.request.ap;
 import es.bsc.compss.checkpoint.CheckpointRecord;
 import es.bsc.compss.checkpoint.types.CheckpointDataVersion;
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.types.request.exceptions.ShutdownException;
 import es.bsc.compss.types.tracing.TraceEvent;
@@ -49,8 +47,8 @@ public class CheckpointerDataCopyEndedRequest extends CheckpointerRequest {
     }
 
     @Override
-    public void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td,
-        CheckpointRecord cp) throws ShutdownException, COMPSsException {
+    public void process(AccessProcessor ap, TaskDispatcher td, CheckpointRecord cp)
+        throws ShutdownException, COMPSsException {
         cp.dataCheckpointed(dataVersion);
     }
 }

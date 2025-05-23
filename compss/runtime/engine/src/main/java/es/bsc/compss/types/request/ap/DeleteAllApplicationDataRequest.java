@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 package es.bsc.compss.types.request.ap;
 
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.data.info.DataInfo;
@@ -29,7 +27,7 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 
 
-public class DeleteAllApplicationDataRequest extends APRequest {
+public class DeleteAllApplicationDataRequest implements APRequest {
 
     private final Application app;
     private final Semaphore sem;
@@ -51,8 +49,7 @@ public class DeleteAllApplicationDataRequest extends APRequest {
     }
 
     @Override
-    public void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td)
-        throws ShutdownException {
+    public void process(AccessProcessor ap, TaskDispatcher td) throws ShutdownException {
         List<DataInfo> data = app.popAllData();
         for (DataInfo di : data) {
             di.delete();

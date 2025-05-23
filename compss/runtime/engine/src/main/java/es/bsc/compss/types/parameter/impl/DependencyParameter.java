@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,12 +17,20 @@
 package es.bsc.compss.types.parameter.impl;
 
 import es.bsc.compss.api.ParameterMonitor;
+import es.bsc.compss.log.Loggers;
+import es.bsc.compss.types.AbstractTask;
+import es.bsc.compss.types.Application;
+import es.bsc.compss.types.Task;
 import es.bsc.compss.types.annotations.parameter.DataType;
 import es.bsc.compss.types.annotations.parameter.Direction;
 import es.bsc.compss.types.annotations.parameter.StdIOStream;
 
-import es.bsc.compss.types.data.DataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
 import es.bsc.compss.types.data.accessparams.AccessParams;
+import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.request.exceptions.ValueUnawareRuntimeException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 
 public abstract class DependencyParameter<T extends AccessParams> extends Parameter
@@ -33,9 +41,13 @@ public abstract class DependencyParameter<T extends AccessParams> extends Parame
      */
     private static final long serialVersionUID = 1L;
 
+    // Loggers
+    protected static final Logger LOGGER = LogManager.getLogger(Loggers.TP_COMP);
+    protected static final boolean DEBUG = LOGGER.isDebugEnabled();
+
     private final T access;
 
-    private DataAccessId daId;
+    private EngineDataAccessId daId;
     private Object dataSource;
     private String dataTarget; // URI (including PROTOCOL) where to find the data within the executing resource
 
@@ -70,12 +82,16 @@ public abstract class DependencyParameter<T extends AccessParams> extends Parame
     }
 
     @Override
-    public DataAccessId getDataAccessId() {
+    public EngineDataAccessId getDataAccessId() {
         return this.daId;
     }
 
-    @Override
-    public void setDataAccessId(DataAccessId daId) {
+    /**
+     * Sets a new data access id.
+     *
+     * @param daId New data access id.
+     */
+    public void setDataAccessId(EngineDataAccessId daId) {
         this.daId = daId;
     }
 
@@ -126,5 +142,148 @@ public abstract class DependencyParameter<T extends AccessParams> extends Parame
     @Override
     public boolean isTargetFlexible() {
         return true;
+    }
+
+    @Override
+    public boolean register(Task task, boolean isConstraining) {
+        // Inform the Data Manager about the new accesses
+        EngineDataAccessId daId;
+        AccessParams access = this.getAccess();
+        daId = access.register();
+        if (DEBUG) {
+            LOGGER.debug("Registered parameter access {" + "\"source\":{" + "\"app\":" + task.getApplication().getId()
+                + "," + "\"task\":" + task.getId() + "," + "\"parameter\":\"" + this.getName() + "\"}," + "\"access\":"
+                + daId.toDebugString() + "}");
+        }
+        // Add parameter dependencies
+        this.setDataAccessId(daId);
+        boolean hasParamEdge = addDependencies(task, isConstraining);
+
+        // Return data Id
+        return hasParamEdge;
+    }
+
+    @Override
+    public void cancel(Task task) {
+        EngineDataAccessId dAccId = this.getDataAccessId();
+        updateParameter(task);
+        dAccId.cancel(task.wasSubmited());
+    }
+
+    @Override
+    public void commit(Task task) {
+        EngineDataAccessId dAccId = this.getDataAccessId();
+        updateParameter(task);
+        dAccId.commit();
+    }
+
+    @Override
+    public DataInfo removeData() throws ValueUnawareRuntimeException {
+        AccessParams access = this.getAccess();
+        Application app = access.getApp();
+        return access.getData().delete(app);
+    }
+
+    private boolean addDependencies(Task currentTask, boolean isConstraining) {
+        // Add dependencies to the graph and register output values for future dependencies
+        boolean hasParamEdge = false;
+        EngineDataAccessId daId = this.getDataAccessId();
+        DataInfo di = daId.getAccessedDataInfo();
+        switch (this.getAccess().getMode()) {
+            case R:
+                hasParamEdge = checkInputDependency(currentTask, false, di, isConstraining);
+                break;
+            case RW:
+                hasParamEdge = checkInputDependency(currentTask, false, di, isConstraining);
+                registerOutputValues(currentTask, false, di);
+                break;
+            case W:
+                // Register output values
+                registerOutputValues(currentTask, false, di);
+                break;
+            case C:
+                hasParamEdge = checkInputDependency(currentTask, true, di, isConstraining);
+                registerOutputValues(currentTask, true, di);
+                break;
+            case CV:
+                hasParamEdge = checkInputDependency(currentTask, false, di, isConstraining);
+                registerOutputValues(currentTask, false, di);
+                break;
+        }
+        return hasParamEdge;
+    }
+
+    private boolean checkInputDependency(Task currentTask, boolean isConcurrent, DataInfo di, boolean isConstraining) {
+        if (DEBUG) {
+            int dataId = di.getDataId();
+            LOGGER.debug("Checking READ dependency for datum " + dataId + " and task " + currentTask.getId());
+        }
+        boolean hasEdge = false;
+        if (di != null) {
+            hasEdge = di.readValue(currentTask, this, isConcurrent);
+            if (isConstraining) {
+                AbstractTask lastWriter = di.getLastVersionProducer();
+                currentTask.setEnforcingTask((Task) lastWriter);
+            }
+        } else {
+            // Task is free
+            if (DEBUG) {
+                int dataId = di.getDataId();
+                LOGGER.debug("There is no last writer for datum " + dataId);
+            }
+            currentTask.registerFreeParam(this);
+        }
+        return hasEdge;
+    }
+
+    /**
+     * Registers the output values of the task {@code currentTask}.
+     *
+     * @param currentTask Task.
+     * @param isConcurrent data access was done in concurrent mode
+     * @param di AccessInfo related to the data being accessed
+     */
+    private void registerOutputValues(Task currentTask, boolean isConcurrent, DataInfo di) {
+        int currentTaskId = currentTask.getId();
+        if (DEBUG) {
+            int dataId = di.getDataId();
+            LOGGER.debug("Checking WRITE dependency for datum " + dataId + " and task " + currentTaskId);
+        }
+
+        di.writeValue(currentTask, this, isConcurrent);
+
+        if (DEBUG) {
+            int dataId = di.getDataId();
+            LOGGER.debug("New writer for datum " + dataId + " is task " + currentTaskId);
+        }
+    }
+
+    private void updateParameter(Task task) {
+        EngineDataAccessId dAccId = this.getDataAccessId();
+        if (dAccId == null) {
+            LOGGER.warn("Parameter for task " + task.getId()
+                + " has no access ID. It could be from a cancelled type. Ignoring ... ");
+            return;
+        }
+        int dataId = dAccId.getDataId();
+
+        if (DEBUG) {
+            int currentTaskId = task.getId();
+            LOGGER.debug("Removing writers info for datum " + dataId + " and task " + currentTaskId);
+        }
+
+        switch (this.getDirection()) {
+            case OUT:
+            case INOUT:
+                DataInfo di = dAccId.getAccessedDataInfo();
+                di.completedProducer(task);
+                break;
+            default:
+                break;
+        }
+
+        if (DEBUG) {
+            LOGGER.debug("Treating that data " + dAccId + " has been accessed at " + this.getDataTarget());
+        }
     }
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@
  */
 package es.bsc.compss.types.implementations;
 
+import es.bsc.compss.types.annotations.Constants;
 import es.bsc.compss.types.implementations.definition.AbstractMethodImplementationDefinition;
 import es.bsc.compss.types.implementations.definition.BinaryDefinition;
 import es.bsc.compss.types.implementations.definition.COMPSsDefinition;
 import es.bsc.compss.types.implementations.definition.ContainerDefinition;
+import es.bsc.compss.types.implementations.definition.ContainerDescription;
 import es.bsc.compss.types.implementations.definition.DecafDefinition;
 import es.bsc.compss.types.implementations.definition.HTTPDefinition;
 import es.bsc.compss.types.implementations.definition.ImplementationDefinition;
@@ -74,6 +76,7 @@ public class ImplementationDescription<T extends WorkerResourceDescription, D ex
      * @param implSignature Implementation signature.
      * @param localProcessing Implementation must run on the local computing devices.
      * @param implConstraints Implementation constraints.
+     * @param container Container description.
      * @param implTypeArgs Implementation specific arguments.
      * @return A new implementation definition from the given parameters.
      * @throws IllegalArgumentException If the number of specific parameters does not match the required number of
@@ -82,11 +85,10 @@ public class ImplementationDescription<T extends WorkerResourceDescription, D ex
     @SuppressWarnings("unchecked")
     public static final <T extends WorkerResourceDescription, D extends ImplementationDefinition>
         ImplementationDescription<T, D> defineImplementation(String implType, String implSignature,
-            boolean localProcessing, T implConstraints, ExecType prolog, ExecType epilog, String[] container,
-            String... implTypeArgs) throws IllegalArgumentException {
+            boolean localProcessing, T implConstraints, ExecType prolog, ExecType epilog,
+            ContainerDescription container, String... implTypeArgs) throws IllegalArgumentException {
 
         ImplementationDescription<T, D> id = null;
-
         if (implType.toUpperCase().compareTo(TaskType.HTTP.toString()) == 0) {
             if (implTypeArgs.length != HTTPDefinition.NUM_PARAMS) {
                 throw new IllegalArgumentException("Incorrect parameters for type HTTP on " + implSignature);
@@ -165,7 +167,7 @@ public class ImplementationDescription<T extends WorkerResourceDescription, D ex
 
                 case COMPSs:
                     if (implTypeArgs.length != COMPSsDefinition.NUM_PARAMS) {
-                        throw new IllegalArgumentException("Incorrect parameters for type MPI on " + implSignature);
+                        throw new IllegalArgumentException("Incorrect parameters for type COMPSS on " + implSignature);
                     }
                     id = new ImplementationDescription<>((D) new COMPSsDefinition(implTypeArgs, 0), implSignature,
                         localProcessing, implConstraints, prolog, epilog);
@@ -212,8 +214,11 @@ public class ImplementationDescription<T extends WorkerResourceDescription, D ex
                         throw new IllegalArgumentException(
                             "Incorrect parameters for type MultiNode on " + implSignature);
                     }
-                    id = new ImplementationDescription<>((D) new MultiNodeDefinition(implTypeArgs, 0), implSignature,
-                        localProcessing, implConstraints, prolog, epilog);
+                    MultiNodeDefinition mnDef = new MultiNodeDefinition(implTypeArgs, 0);
+                    implConstraints.scaleUpBy(mnDef.getPPN());
+
+                    id = new ImplementationDescription<>((D) mnDef, implSignature, localProcessing, implConstraints,
+                        prolog, epilog);
                     break;
             }
         }
@@ -260,7 +265,7 @@ public class ImplementationDescription<T extends WorkerResourceDescription, D ex
 
     /**
      * Returns whether the implementation is to be run locally or can be offloaded.
-     * 
+     *
      * @return {@literal true} if the implementation is to be run locally; {@literal false} otherwise
      */
     public boolean isLocal() {
@@ -319,6 +324,17 @@ public class ImplementationDescription<T extends WorkerResourceDescription, D ex
         out.writeObject(this.implDefinition);
         out.writeObject(this.prolog);
         out.writeObject(this.epilog);
+    }
+
+    /**
+     * Returns a JSON representation of the implementation description.
+     * 
+     * @return JSON representation
+     */
+    public final String toJSON() {
+        return "{" + "\"signature\":\"" + this.signature + "\"," + "\"local\":" + this.isLocal + ","
+            + "\"constraints\":" + this.constraints + "," + "\"definition\":" + this.implDefinition.toJSON() + ","
+            + "\"prolog\":" + this.prolog + "," + "\"epilog\":" + this.epilog + "}";
     }
 
     @Override

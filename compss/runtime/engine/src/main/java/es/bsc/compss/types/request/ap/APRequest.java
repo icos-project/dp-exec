@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 package es.bsc.compss.types.request.ap;
 
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.log.Loggers;
 import es.bsc.compss.types.request.exceptions.ShutdownException;
@@ -32,10 +30,10 @@ import org.apache.logging.log4j.Logger;
 /**
  * The TPRequest class represents any interaction with the TaskProcessor component.
  */
-public abstract class APRequest {
+public interface APRequest {
 
-    protected static final Logger LOGGER = LogManager.getLogger(Loggers.TP_COMP);
-    protected static final boolean DEBUG = LOGGER.isDebugEnabled();
+    Logger LOGGER = LogManager.getLogger(Loggers.TP_COMP);
+    boolean DEBUG = LOGGER.isDebugEnabled();
 
 
     /**
@@ -43,19 +41,16 @@ public abstract class APRequest {
      * 
      * @return event to trace
      */
-    public abstract TraceEvent getEvent();
+    TraceEvent getEvent();
 
     /**
      * Processes the Request.
      *
      * @param ap AccessProcessor processing the request.
-     * @param ta Task Analyser of the processing AccessProcessor.
-     * @param dip DataInfoProvider of the processing AccessProcessor.
      * @param td Task Dispatcher attached to the processing AccessProcessor.
      * @throws ShutdownException If the component has been shutdown unexpectedly.
      * @throws COMPSsException Exception thrown by user
      */
-    public abstract void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td)
-        throws ShutdownException, COMPSsException;
+    void process(AccessProcessor ap, TaskDispatcher td) throws ShutdownException, COMPSsException;
 
 }

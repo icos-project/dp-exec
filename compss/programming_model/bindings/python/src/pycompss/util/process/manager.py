@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -89,6 +89,14 @@ def new_queue() -> Queue:
     :return: New queue
     """
     return multiprocessing.Queue()
+
+
+def new_event() -> typing.Any:
+    """Instantiate a new event.
+
+    :return: New event
+    """
+    return multiprocessing.Event()
 
 
 def new_manager() -> SyncManager:

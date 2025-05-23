@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -183,6 +183,8 @@ public class GOSCopy extends ImmediateAsyncCopy {
         // If the transfer is fully local transferFile return null;
         if (monitor != null) {
             getMonitoring().addTransferMonitor(monitor);
+        } else {
+            LOGGER.warn("Monitor for " + this + " is null");
         }
     }
 

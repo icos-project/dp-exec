@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -87,13 +87,8 @@ class Software(
     """
 
     __slots__ = [
-        "decorator_name",
         "args",
         "kwargs",
-        "scope",
-        "core_element",
-        "core_element_configured",
-        "task_type",
         "config_args",
         "decor",
         "constraints",
@@ -103,8 +98,6 @@ class Software(
         "parameters",
         "file_path",
         "is_workflow",
-        "registered_signatures",
-        "constraint_args",
     ]
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
@@ -329,7 +322,7 @@ class Software(
         software_f.__doc__ = user_function.__doc__
         return software_f
 
-    def pop_file_path(self, *args):
+    def pop_file_path(self, *args) -> typing.Tuple:
         """Pop JSON configuration file path from the args.
 
         :param args: args of the task function

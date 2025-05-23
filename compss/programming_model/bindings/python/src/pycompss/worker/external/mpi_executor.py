@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@ from pycompss.util.context import CONTEXT
 from mpi4py import MPI
 from pycompss.util.exceptions import PyCOMPSsException
 from pycompss.util.logger.helpers import init_logging_worker
+from pycompss.util.logger.remittent import LOG_REMITTENT
+from pycompss.util.logger.level import LOG_LEVEL
 from pycompss.util.tracing.helpers import EventWorker
 from pycompss.util.tracing.types_events_worker import TRACING_WORKER
 from pycompss.util.typing_helper import typing
@@ -85,23 +87,15 @@ def executor(process_name: str, command: str) -> None:
     tracing = command.split()[8] == "true"
 
     # Load log level configuration file
-    worker_path = os.path.dirname(os.path.realpath(__file__))
     if log_level in ("true", "debug"):
         # Debug
-        log_json = "".join(
-            (worker_path, "/../../../log/logging_mpi_worker_debug.json")
-        )
+        init_logging_worker(LOG_REMITTENT.MPI_WORKER, LOG_LEVEL.DEBUG, tracing)
     elif log_level == "info":
         # Info
-        log_json = "".join(
-            (worker_path, "/../../../log/logging_mpi_worker_info.json")
-        )
+        init_logging_worker(LOG_REMITTENT.MPI_WORKER, LOG_LEVEL.INFO, tracing)
     else:
         # Default (off)
-        log_json = "".join(
-            (worker_path, "/../../../log/logging_mpi_worker_off.json")
-        )
-    init_logging_worker(log_json, tracing)
+        init_logging_worker(LOG_REMITTENT.MPI_WORKER, LOG_LEVEL.OFF, tracing)
 
     logger = logging.getLogger("pycompss.worker.external.mpi_executor")
     logger_handlers = copy.copy(logger.handlers)
@@ -123,7 +117,6 @@ def executor(process_name: str, command: str) -> None:
         command,
         process_name,
         logger,
-        log_json,
         logger_handlers,
         logger_level,
         logger_formatter,
@@ -148,7 +141,6 @@ def process_task(
     current_line: str,
     process_name: str,
     logger: logging.Logger,
-    log_json: str,
     logger_handlers: typing.Any,
     logger_level: int,
     logger_formatter: typing.Any,
@@ -158,7 +150,6 @@ def process_task(
     :param current_line: Current command (line) to process.
     :param process_name: Process name for logger messages.
     :param logger: Logger.
-    :param log_json: Logger configuration file.
     :param logger_handlers: Logger handlers.
     :param logger_level: Logger level.
     :param logger_formatter: Logger formatter.
@@ -215,14 +206,15 @@ def process_task(
             # current_line_filtered[10] = <string> = module
             # current_line_filtered[11]= <string>  = method
             # current_line_filtered[12]= <string>  = time out
-            # current_line_filtered[13]= <integer> = Number of slaves
+            # current_line_filteres[13]= <integer> = ppn
+            # current_line_filtered[14]= <integer> = Number of slaves
             #                                        (worker nodes)==#nodes
             # <<list of slave nodes>>
-            # current_line_filtered[13 + #nodes] = <integer> = computing units
-            # current_line_filtered[14 + #nodes] = <boolean> = has target
-            # current_line_filtered[15 + #nodes] = <string>  = has return
+            # current_line_filtered[14 + #nodes] = <integer> = computing units
+            # current_line_filtered[15 + #nodes] = <boolean> = has target
+            # current_line_filtered[16 + #nodes] = <string>  = has return
             #                                                  (always "null")
-            # current_line_filtered[16 + #nodes] = <integer> = Number of
+            # current_line_filtered[17 + #nodes] = <integer> = Number of
             #                                                  parameters
             # <<list of parameters>>
             #       !---> type, stream, prefix , value
@@ -273,12 +265,14 @@ def process_task(
                 sys.stderr = err
 
                 # Setup process environment
-                compss_nodes = int(current_line_filtered[13])
+                compss_ppn = int(current_line_filtered[13])
+                compss_nodes = int(current_line_filtered[14])
                 compss_nodes_names = ",".join(
-                    current_line_filtered[14 : 14 + compss_nodes]  # noqa: E203
+                    current_line_filtered[15 : 15 + compss_nodes]  # noqa: E203
                 )
-                computing_units = int(current_line_filtered[14 + compss_nodes])
+                computing_units = int(current_line_filtered[15 + compss_nodes])
                 os.environ["COMPSS_NUM_NODES"] = str(compss_nodes)
+                os.environ["COMPSS_NUM_PROCS"] = str(compss_ppn * compss_nodes)
                 os.environ["COMPSS_HOSTNAMES"] = compss_nodes_names
                 os.environ["COMPSS_NUM_THREADS"] = str(computing_units)
                 os.environ["OMP_NUM_THREADS"] = str(computing_units)
@@ -302,7 +296,6 @@ def process_task(
                     current_line_filtered[10:],
                     tracing,
                     logger,
-                    log_json,
                     (job_out, job_err),
                     python_mpi,
                     collections_layouts,

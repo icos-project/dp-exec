@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import es.bsc.compss.components.impl.ResourceScheduler;
 import es.bsc.compss.components.impl.TaskScheduler;
 import es.bsc.compss.scheduler.exceptions.BlockedActionException;
 import es.bsc.compss.scheduler.exceptions.UnassignedActionException;
+import es.bsc.compss.scheduler.types.ActionOrchestrator;
 import es.bsc.compss.scheduler.types.AllocatableAction;
 import es.bsc.compss.scheduler.types.ObjectValue;
 import es.bsc.compss.scheduler.types.Score;
@@ -55,9 +56,11 @@ public abstract class LookaheadTS extends TaskScheduler {
 
     /**
      * Constructs a new Ready Scheduler instance.
+     *
+     * @param orchestrator element ordering the execution of actions
      */
-    public LookaheadTS() {
-        super();
+    public LookaheadTS(ActionOrchestrator orchestrator) {
+        super(orchestrator);
         this.availableWorkers = new HashSet<>();
         this.schedulerExecutor = new ThreadPoolExecutor(15, 40, 180, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
         this.schedulerExecutor.allowCoreThreadTimeOut(true);

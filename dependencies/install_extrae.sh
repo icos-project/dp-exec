@@ -36,6 +36,16 @@
       if [ -n "${I_MPI_ROOT}" ]; then
         mpiPath="${I_MPI_ROOT}"
         argMpi="--with-mpi=${mpiPath}"
+        if [ -d "${mpiPath}/lib/" ]; then
+          argMpiLibs="--with-mpi-libs=${mpiPath}/lib/release/"
+        else
+          if [ -d "${mpiPath}/lib64/" ]; then
+            argMpiLibs="--with-mpi-libs=${mpiPath}/lib64/release/"
+          else
+            echo "ERROR: Cannot find MPI lib or lib64 folder within ${mpiPath}"
+            exit 1
+          fi
+        fi
       else
         mpiPath=$(which mpirun 2> /dev/null)
         if [ -n "${mpiPath}" ]; then
@@ -69,7 +79,7 @@
           if [ -d "${mpiPath}/include" ]; then
             argMpiHeaders="--with-mpi-headers=${mpiPath}/include"
           else
-		  echo "ERROR: Cannot automatically infer MPI include folder (${mpiPath})"
+            echo "ERROR: Cannot automatically infer MPI include folder (${mpiPath})"
             exit 1
           fi
         fi
@@ -79,23 +89,27 @@
     fi
 
     # Set MPI libs by user or from the system
-    if [ -n "${mpiPath}" ]; then
-      if [ -n "${EXTRAE_MPI_LIBS}" ]; then
-        argMpiLibs="--with-mpi-libs=${EXTRAE_MPI_LIBS}"
-      else
-        if [ -d "${mpiPath}/lib64" ]; then
-          argMpiLibs="--with-mpi-libs=${mpiPath}/lib64"
+    if [ -n "${argMpiLibs}" ]; then
+	echo "WARN: MPI lbs already set in a previous step"
+    else
+      if [ -n "${mpiPath}" ]; then
+        if [ -n "${EXTRAE_MPI_LIBS}" ]; then
+          argMpiLibs="--with-mpi-libs=${EXTRAE_MPI_LIBS}"
         else
-          if [ -d "${mpiPath}/lib" ]; then
-            argMpiLibs="--with-mpi-libs=${mpiPath}/lib"
+          if [ -d "${mpiPath}/lib64" ]; then
+            argMpiLibs="--with-mpi-libs=${mpiPath}/lib64"
           else
-            echo "ERROR: Cannot automatically infer MPI libs folder"
-            exit 1
+            if [ -d "${mpiPath}/lib" ]; then
+              argMpiLibs="--with-mpi-libs=${mpiPath}/lib"
+            else
+              echo "ERROR: Cannot automatically infer MPI libs folder"
+              exit 1
+            fi
           fi
         fi
+      else
+        argMpiLibs=""
       fi
-    else
-      argMpiLibs=""
     fi
   }
 

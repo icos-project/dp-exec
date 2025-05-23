@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 ACLOCAL_AMFLAGS=-I m4
 
 bin_SCRIPTS = compss_build
-nobase_dist_pkgdata_DATA = \
+nobase_dist_data_DATA = \
 	c_build/master/configure.ac \
 	c_build/master/Makefile.am \
 	c_build/worker/configure.ac \

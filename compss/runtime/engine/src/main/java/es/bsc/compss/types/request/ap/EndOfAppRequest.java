@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
  */
 package es.bsc.compss.types.request.ap;
 
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.tracing.TraceEvent;
 
@@ -38,9 +37,10 @@ public class EndOfAppRequest extends BarrierRequest {
     }
 
     @Override
-    public void handleBarrier(TaskAnalyser ta) {
+    public void handleBarrier() {
         LOGGER.info("TA Processes no More tasks for app " + this.getApp().getId());
-        ta.noMoreTasks(this);
+        Application app = this.getApp();
+        app.endReached(this);
         LOGGER.info("TA Processed no More tasks for app " + this.getApp().getId());
 
     }

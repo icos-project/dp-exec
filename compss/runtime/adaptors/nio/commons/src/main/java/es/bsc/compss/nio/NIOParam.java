@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -301,28 +301,42 @@ public class NIOParam implements Externalizable, InvocationParam {
      *
      * @param sb StringBuilder where to dump the internal information.
      */
-    public void dumpInternalInfo(StringBuilder sb) {
-        sb.append("[MGMT ID = ").append(this.dataMgmtId).append("]");
-        sb.append("[TYPE = ").append(this.type).append("]");
-        sb.append("[IOSTREAM = ").append(this.stream).append("]");
-        sb.append("[PREFIX = ").append(this.prefix).append("]");
-        sb.append("[NAME = ").append(this.name).append("]");
-        sb.append("[CONTENT TYPE = ").append(this.contentType).append("]");
-        sb.append("[KEEP_RENAME = ").append(this.keepRename).append("]");
-        sb.append("[PRESERVE SOURCE DATA = ").append(this.preserveSourceData).append("]");
-        sb.append("[WRITE FINAL VALUE = ").append(this.writeFinalValue).append("]");
-        sb.append("[ORIGINAL NAME = ").append(this.originalName).append("]");
-        sb.append("[VALUE = ").append(this.value).append("]");
-        sb.append("[DATA ").append(this.source).append("]");
-        sb.append("[STORED PATH = ").append(this.targetPath).append("]");
+    protected void dumpInternalInfo(StringBuilder sb) {
+        sb.append("\"mgmt_id\":\"").append(this.dataMgmtId).append("\",");
+        sb.append("\"type\":\"").append(this.type).append("\",");
+        sb.append("\"io_stream\":\"").append(this.stream).append("\",");
+        sb.append("\"prefix\":\"").append(this.prefix).append("\",");
+        sb.append("\"name\":\"").append(this.name).append("\",");
+        sb.append("\"content_type\":\"").append(this.contentType).append("\",");
+        sb.append("\"keep_rename\":").append(this.keepRename).append(",");
+        sb.append("\"preserve_source_data\":").append(this.preserveSourceData).append(",");
+        sb.append("\"write_final_value\":").append(this.writeFinalValue).append(",");
+        sb.append("\"original_name\":\"").append(this.originalName).append("\",");
+        sb.append("\"value\":");
+        switch (this.type) {
+            case STRING_T:
+            case STRING_64_T:
+            case FILE_T:
+            case OBJECT_T:
+            case PSCO_T:
+            case WSTRING_T:
+            case BINDING_OBJECT_T:
+            case DICT_COLLECTION_T:
+                sb.append("\"").append(this.value).append("\"");
+                break;
+            default:
+                sb.append(this.value);
+        }
+        sb.append(",");
+        sb.append("\"data\":").append(this.source).append(",");
+        sb.append("\"stored_path\":").append(this.targetPath);
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder("[PARAM");
+        StringBuilder sb = new StringBuilder("{");
         dumpInternalInfo(sb);
-        sb.append("]");
-
+        sb.append("}");
         return sb.toString();
     }
 

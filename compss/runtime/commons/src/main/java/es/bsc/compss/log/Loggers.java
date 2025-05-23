@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -51,9 +51,7 @@ public final class Loggers {
     public static final String ERROR_MANAGER = ALL_COMP + ".ErrorManager";
     public static final String TRACING = ALL_COMP + ".Tracing";
 
-    public static final String TA_COMP = TP_COMP + ".TaskAnalyser";
     public static final String CP_COMP = TP_COMP + ".CheckpointManager";
-    public static final String DIP_COMP = TP_COMP + ".DataInfoProvider";
 
     public static final String TS_COMP = TD_COMP + ".TaskScheduler";
     public static final String JM_COMP = TD_COMP + ".JobManager";

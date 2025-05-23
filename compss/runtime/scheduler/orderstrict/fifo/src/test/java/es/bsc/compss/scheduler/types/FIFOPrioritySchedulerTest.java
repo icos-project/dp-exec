@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -83,9 +83,9 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def, "fakeSignature00", false, new FakeResourceDescription(1));
         CoreElement ce0 = addCoreElementToCM("fakeSignature0", fid);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
 
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
@@ -116,9 +116,9 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def, "fakeSignature10", false, new FakeResourceDescription(1));
         CoreElement ce0 = addCoreElementToCM("fakeSignature1", fid);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
 
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
@@ -157,12 +157,13 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def, "fakeSignature00", false, new FakeResourceDescription(1));
         CoreElement ce0 = addCoreElementToCM("fakeSignature0", fid);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
 
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
+
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker03";
@@ -207,12 +208,13 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def, "fakeSignature00", false, new FakeResourceDescription(1));
         CoreElement ce0 = addCoreElementToCM("fakeSignature0", fid);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
 
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
+
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker04";
@@ -269,11 +271,12 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def, "fakeSignature00", false, new FakeResourceDescription(1));
         CoreElement ce0 = addCoreElementToCM("fakeSignature0", fid);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
+
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName = "Worker05";
@@ -340,9 +343,9 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def2, "fakeSignature02", false, new FakeResourceDescription(3));
         CoreElement ce2 = addCoreElementToCM("fakeSignature2", fid2);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
@@ -395,9 +398,9 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def, "fakeSignature00", false, new FakeResourceDescription(1));
         CoreElement ce0 = addCoreElementToCM("fakeSignature0", fid);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
@@ -477,9 +480,9 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def2, "fakeSignature02", false, new FakeResourceDescription(3));
         CoreElement ce2 = addCoreElementToCM("fakeSignature2", fid2);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
@@ -544,9 +547,9 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def, "fakeSignature00", false, new FakeResourceDescription(1));
         CoreElement ce0 = addCoreElementToCM("fakeSignature0", fid);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
@@ -618,9 +621,9 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def2, "fakeSignature02", false, new FakeResourceDescription(3));
         CoreElement ce2 = addCoreElementToCM("fakeSignature2", fid2);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
@@ -676,9 +679,10 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def1, "fakeSignature01", false, new FakeResourceDescription(3));
         CoreElement ce1 = addCoreElementToCM("fakeSignature1", fid1);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
         FIFOValidator validator = new FIFOValidator(ts);
@@ -728,11 +732,12 @@ public class FIFOPrioritySchedulerTest {
             new FakeImplDescription(def0, "fakeSignature00", false, new FakeResourceDescription(1));
         CoreElement ce0 = addCoreElementToCM("fakeSignature0", fid0);
 
-        TaskScheduler ts = new FifoTS();
-        FakeActionOrchestrator fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        FakeActionOrchestrator fao = new FakeActionOrchestrator();
+        TaskScheduler ts = new FifoTS(fao);
+        fao.setTaskScheduler(ts);
         OTelFacade.clearCoreElements();
         ts.coreElementsUpdated();
+
         FIFOValidator validator = new FIFOValidator(ts);
 
         String workerName0 = "Worker16";

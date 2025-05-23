@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import java.lang.Math;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 
 /**
@@ -38,6 +38,7 @@ public class GOSJobDescription {
     private String pathResponse;
     public ArrayList<String> arguments;
     private final ArrayList<String> argumentsKey;
+    public ArrayList<String> killArguments;
     private String executable;
     private String commandOptionsBatch;
     private SSHHost host;
@@ -51,6 +52,7 @@ public class GOSJobDescription {
     private ArrayList<String> queues;
     private String cfg;
     private String qos;
+    private String projectName;
     private long maxExecTime;
     private String reservation;
     private String killDir;
@@ -102,6 +104,7 @@ public class GOSJobDescription {
         this.arguments = new ArrayList<>();
         this.argumentsKey = new ArrayList<>();
         this.job = gosJob;
+        this.killArguments = new ArrayList<>();
         ForbiddenCharacters.init();
     }
 
@@ -245,6 +248,20 @@ public class GOSJobDescription {
         return killDir;
     }
 
+    /**
+     * Gets kill script.
+     * 
+     * @param compositeID Composite ID
+     * @return The cancel script
+     */
+    public String getCancelScript(String compositeID) {
+        String script = getCancelScriptDir() + "/" + compositeID;
+        if (!killArguments.isEmpty()) {
+            script = script + " " + StringUtils.join(killArguments, " ");
+        }
+        return script;
+    }
+
     public void setQueueType(ArrayList<String> queues) {
         this.queues = queues;
     }
@@ -260,7 +277,7 @@ public class GOSJobDescription {
      */
     public void setCFG(Object fileCFG) {
         String t = (String) fileCFG;
-        if (t.equals("null") || t.isEmpty()) {
+        if (fileCFG == null || t.isEmpty() || t.equals("null")) {
             this.cfg = "";
         } else {
             this.cfg = t;
@@ -278,7 +295,7 @@ public class GOSJobDescription {
      */
     public void setQOS(Object qos) {
         String t = (String) qos;
-        if (t.equals("null") || t.isEmpty()) {
+        if (qos == null || t.isEmpty() || t.equals("null")) {
             this.qos = "false";
         } else {
             this.qos = t;
@@ -290,13 +307,31 @@ public class GOSJobDescription {
     }
 
     /**
+     * Sets project name.
+     *
+     * @param projectName the project name
+     */
+    public void setProjectName(Object projectName) {
+        String t = (String) projectName;
+        if (projectName == null || t.isEmpty() || t.equals("null")) {
+            this.projectName = "";
+        } else {
+            this.projectName = t;
+        }
+    }
+
+    public String getProjectName() {
+        return this.projectName;
+    }
+
+    /**
      * Sets max exec time.
      *
      * @param time the time
      */
     public void setMaxExecTime(Object time) {
         Long t = (Long) time;
-        if (t == null || t < 1) {
+        if (time == null || t < 1) {
             this.maxExecTime = 30;
         } else {
             this.maxExecTime = t;
@@ -314,7 +349,7 @@ public class GOSJobDescription {
      */
     public void setReservation(Object reservation) {
         String r = (String) reservation;
-        if (reservation == null || r.isEmpty()) {
+        if (reservation == null || r.isEmpty() || r.equals("null")) {
             this.reservation = "disabled";
         } else {
             this.reservation = r;

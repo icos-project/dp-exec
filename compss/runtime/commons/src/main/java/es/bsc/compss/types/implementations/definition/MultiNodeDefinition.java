@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,10 +33,11 @@ public class MultiNodeDefinition implements AbstractMethodImplementationDefiniti
      */
     private static final long serialVersionUID = 1L;
 
-    public static final int NUM_PARAMS = 2;
+    public static final int NUM_PARAMS = 3;
 
     private String declaringClass;
     private String methodName;
+    private int ppn = 1;
 
 
     /**
@@ -52,10 +53,11 @@ public class MultiNodeDefinition implements AbstractMethodImplementationDefiniti
      * @param methodClass Class name.
      * @param methodName Method name.
      */
-    public MultiNodeDefinition(String methodClass, String methodName) {
+    public MultiNodeDefinition(String methodClass, String methodName, int ppn) {
 
         this.declaringClass = methodClass;
         this.methodName = methodName;
+        this.ppn = ppn;
     }
 
     /**
@@ -73,12 +75,19 @@ public class MultiNodeDefinition implements AbstractMethodImplementationDefiniti
         if (methodName == null || methodName.isEmpty()) {
             throw new IllegalArgumentException("Empty methodName annotation for method ");
         }
+        String ppnStr = EnvironmentLoader.loadFromEnvironment(implTypeArgs[offset + 2]);
+        if (ppnStr == null || ppnStr.isEmpty()) {
+            this.ppn = 1;
+        } else {
+            this.ppn = Integer.parseInt(ppnStr);
+        }
     }
 
     @Override
     public void appendToArgs(List<String> lArgs, String auxParam) {
         lArgs.add(this.declaringClass);
         lArgs.add(this.methodName);
+        lArgs.add(Integer.toString(this.ppn));
     }
 
     /**
@@ -108,18 +117,22 @@ public class MultiNodeDefinition implements AbstractMethodImplementationDefiniti
         this.methodName = methodName;
     }
 
+    public int getPPN() {
+        return ppn;
+    }
+
     @Override
     public MethodType getMethodType() {
         return MethodType.MULTI_NODE;
     }
 
     @Override
-    public String toMethodDefinitionFormat() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[DECLARING CLASS=").append(this.declaringClass);
-        sb.append(", METHOD NAME=").append(this.methodName);
-        sb.append("]");
-
+    public String toJSON() {
+        StringBuilder sb = new StringBuilder("{\"type\":\"MULTI_NODE\",");
+        sb.append("\"declaring_class\":\"").append(this.declaringClass).append("\",");
+        sb.append("\"method_name\":\"").append(this.methodName).append("\",");
+        sb.append("\"ppn\":").append(this.ppn).append("");
+        sb.append("}");
         return sb.toString();
     }
 
@@ -141,12 +154,14 @@ public class MultiNodeDefinition implements AbstractMethodImplementationDefiniti
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         this.declaringClass = (String) in.readObject();
         this.methodName = (String) in.readObject();
+        this.ppn = in.readInt();
     }
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
         out.writeObject(this.declaringClass);
         out.writeObject(this.methodName);
+        out.writeInt(this.ppn);
     }
 
     @Override

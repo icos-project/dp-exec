@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -41,11 +41,11 @@ public class DirectoryMainAccess extends FileMainAccess<DirectoryData, Directory
      */
     public static final DirectoryMainAccess constructDMA(Application app, Direction dir, DataLocation loc) {
         DirectoryAccessParams dap = DirectoryAccessParams.constructDAP(app, dir, loc);
-        return new DirectoryMainAccess(dap);
+        return new DirectoryMainAccess(app, dap);
     }
 
-    private DirectoryMainAccess(DirectoryAccessParams p) {
-        super(p);
+    private DirectoryMainAccess(Application app, DirectoryAccessParams p) {
+        super(app, p);
     }
 
     @Override

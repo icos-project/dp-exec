@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -96,6 +96,16 @@ public class NIOParamCollection extends NIOParam implements InvocationParamColle
             // Note that this implementation also implicitly supports nesting
             out.writeObject(subParam);
         }
+    }
+
+    /**
+     * Dumps the internal information into the given StringBuilder.
+     *
+     * @param sb StringBuilder where to dump the internal information.
+     */
+    protected void dumpInternalInfo(StringBuilder sb) {
+        sb.append("\"elements\":[],");
+        super.dumpInternalInfo(sb);
     }
 
     @Override

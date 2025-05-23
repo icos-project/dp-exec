@@ -544,7 +544,17 @@ xml_project_add_worker_in_master() {
     fi
     # Add compute node
     master_node_name=${master_node_name}${network}
-    add_compute_node "${master_node_name}" "${worker_install_dir}" "${worker_working_dir}" "NULL" "NULL" "${library_path}" "NULL" "NULL" "${max_tasks_per_node}"
+    if [ -z "${xmls_phase}" ] || [ "${xmls_phase}" == "all" ]; then
+      # Normal submission
+      add_compute_node "${master_node_name}" "${worker_install_dir}" "${worker_working_dir}" "NULL" "NULL" "${library_path}" "NULL" "NULL" "${max_tasks_per_node}"
+    else
+      # Heterogeneous submission
+      if [ "${xmls_phase}" == "fini" ]; then
+        add_compute_node_on_top "${master_node_name}" "${worker_install_dir}" "${worker_working_dir}" "NULL" "NULL" "${library_path}" "NULL" "NULL" "${max_tasks_per_node}"
+      else
+        add_compute_node "${master_node_name}" "${worker_install_dir}" "${worker_working_dir}" "NULL" "NULL" "${library_path}" "NULL" "NULL" "${max_tasks_per_node}"
+      fi
+    fi
   fi
 }
 
@@ -638,9 +648,13 @@ xml_project_add_elasticity() {
     fi
     if [ -n "${cpus_per_task}" ] && [ "${cpus_per_task}" == "true" ]; then
             if [ -n "${cpus_per_node}" ] && [ "${cpus_per_node}" != "0" ]; then
-                AUXILIAR_LAUNCH_PARAMS="${QARG_CPUS_PER_TASK} ${cpus_per_node} "
+                AUXILIAR_LAUNCH_PARAMS="${QARG_CPUS_PER_TASK} ${cpus_per_node} ${AUXILIAR_LAUNCH_PARAMS}"
             fi
-        fi
+    fi
+    if [ -n "${het_group}" ]; then
+	    AUXILIAR_LAUNCH_PARAMS="${QARG_HET_GROUP}${het_group} ${AUXILIAR_LAUNCH_PARAMS}"
+    fi
+
      launch_command=$(echo "${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}" | tr " " "#" | tr "=" "%")
      props="$props launch_command=${launch_command}"
 
@@ -717,7 +731,17 @@ xml_resources_add_worker_in_master() {
     fi
     # Add compute node
     master_node_name=${master_node_name}${network}
-    add_compute_node "${master_node_name}" "${worker_in_master_cpus}" "${gpus_per_node}" "${fpgas_per_node}" "${worker_in_master_memory}" "${node_storage_bandwidth}" "${worker_min_port}" "${worker_max_port}" "${REMOTE_EXECUTOR:-NULL}" "${shared_disks_info}"
+    if [ -z "${xmls_phase}" ] || [ "${xmls_phase}" == "all" ]; then
+      # Normal submission
+      add_compute_node "${master_node_name}" "${worker_in_master_cpus}" "${gpus_per_node}" "${fpgas_per_node}" "${worker_in_master_memory}" "${node_storage_bandwidth}" "${worker_min_port}" "${worker_max_port}" "${REMOTE_EXECUTOR:-NULL}" "${shared_disks_info}"
+    else
+      # Heterogeneous submission
+      if [ "${xmls_phase}" == "fini" ]; then
+        add_compute_node_on_top "${master_node_name}" "${worker_in_master_cpus}" "${gpus_per_node}" "${fpgas_per_node}" "${worker_in_master_memory}" "${node_storage_bandwidth}" "${worker_min_port}" "${worker_max_port}" "${REMOTE_EXECUTOR:-NULL}" "${shared_disks_info}"
+      else
+        add_compute_node "${master_node_name}" "${worker_in_master_cpus}" "${gpus_per_node}" "${fpgas_per_node}" "${worker_in_master_memory}" "${node_storage_bandwidth}" "${worker_min_port}" "${worker_max_port}" "${REMOTE_EXECUTOR:-NULL}" "${shared_disks_info}"
+      fi
+    fi
   fi
 }
 
@@ -869,7 +893,9 @@ init_het_xml_files() {
   # Add master information (from generate_project.sh)
   add_master_node "0" "0" "0" "NULL" "${shared_disks_info}"
   # Add workers
-  xml_project_add_worker_in_master
+  if [ -n "${master_node}" ]; then
+    xml_project_add_worker_in_master
+  fi
   xml_project_add_workers
   # Add elasticity
   if [ -n "${elasticity}" ]; then
@@ -883,7 +909,7 @@ init_het_xml_files() {
   RESOURCES_FILE=${PWD}/resources_$suffix.xml
   export RESOURCES_FILE
   if [ "${log_level}" != "off" ]; then
-    echo "[LAUNCH_COMPSS] HT-XML Resources.xml: ${RESOURCES_FILE}"
+    echo "[LAUNCH_COMPSS] HT-XML - Resources.xml: ${RESOURCES_FILE}"
   fi
   # Setup resources variables and scripts
   xml_resources_setup
@@ -892,7 +918,9 @@ init_het_xml_files() {
   # Add shared disks (from generate_resources.sh)
   add_shared_disks "${shared_disks_names}"
   # Add workers
-  xml_resources_add_worker_in_master
+  if [ -n "${master_node}" ]; then
+    xml_resources_add_worker_in_master
+  fi
   xml_resources_add_workers
   # Add elasticity
   if [ -n "${elasticity}" ]; then
@@ -958,11 +986,13 @@ fini_het_xml_files() {
   PROJECT_FILE=${PWD}/project_$suffix.xml
   export PROJECT_FILE
   if [ "${log_level}" != "off" ]; then
-     echo "[LAUNCH_COMPSS] HT-XML - Project.xml:   ${PROJECT_FILE}"
+     echo "[LAUNCH_COMPSS] HT-XML - Project.xml: ${PROJECT_FILE}"
   fi
 
   # Setup project variables and scripts
   xml_project_setup
+  # Add worker in master if necessary
+  xml_project_add_worker_in_master
   # Close project (from generate_project.sh)
   add_footer
 
@@ -978,13 +1008,15 @@ fini_het_xml_files() {
 
   # Setup resources variables and scripts
   xml_resources_setup
+  # Add workers in master if necessary
+  xml_resources_add_worker_in_master
   # Close resources (from generate_resources.sh)
   add_footer
 
   # LOG
   if [ "${log_level}" != "off" ]; then
      # LOG
-     echo "[LAUNCH_COMPSS] HT-XML -Generation of project and resources files finished"
+     echo "[LAUNCH_COMPSS] HT-XML - Generation of project and resources files finished"
   fi
 }
 
@@ -1388,6 +1420,13 @@ get_args() {
           # Added for tracing in heterogeneity
           initial_hostid=${OPTARG//initial_hostid=/}
           ;;
+        het_group=*)
+          # Addded for heterogeneity
+          het_group=${OPTARG//het_group=/}
+          ;;
+        no_master)
+          no_master=true
+          ;;
         gen_coredump)
           # Generate the coredump
           gen_coredump=true
@@ -1643,12 +1682,11 @@ check_args() {
     rand_num=$RANDOM
     offset=$((rand_num % DEFAULT_MASTER_PORT_RAND_RANGE))
     master_port=$((DEFAULT_MASTER_PORT_BASE + offset))
+    while [ "$(netstat | grep -v CLOSED | grep -c ${master_port})" -gt 0 ] || [ ! -z "$(lsof -i :${master_port})" ]; do
+       echo "Port ${master_port} is already in use or time_wait, incrementing port by 1"
+       master_port=$((master_port+1))
+    done
   fi
-
-  while [ "$(netstat | grep -v CLOSED | grep -c ${master_port})" -gt 0 ] || [ ! -z "$(lsof -i :${master_port})" ]; do
-    echo "Port ${master_port} is already in use or time_wait, incrementing port by 1"
-    master_port=$((master_port+1))
-  done
 
   #
   # Worker port range
@@ -1953,15 +1991,25 @@ set_variables() {
     else
       worker_working_dir=$(mktemp -d -p "${SHARED_DISK_PREFIX}${HOME}")
     fi
+    CREATE_WORKING_DIRS=false
   elif [ "${worker_working_dir}" == "${LOCAL_DISK_NAME}" ]; then
     worker_working_dir=${LOCAL_DISK_PREFIX}/${!ENV_VAR_JOB_ID}
     mkdir -p "${worker_working_dir}"
+    CREATE_WORKING_DIRS=true
   else
     # The working dir is a custom absolute path, create tmp
     if [[ "$OSTYPE" == "darwin"* ]]; then
       worker_working_dir=$(mktemp -d -t "${worker_working_dir}")
     else
       worker_working_dir=$(mktemp -d -p "${worker_working_dir}")
+    fi
+    if [[ ${worker_working_dir}/ = ${SHARED_DISK_PREFIX}* ]]; then
+      CREATE_WORKING_DIRS=false
+    elif [[ ${worker_working_dir}/ = ${SHARED_DISK_2_PREFIX}* ]]; then
+      CREATE_WORKING_DIRS=false
+    else
+      echo "Setting CREATE_working_dirs to true..."
+      CREATE_WORKING_DIRS=true
     fi
   fi
 
@@ -2113,6 +2161,51 @@ launch() {
       fi
       hostid=${initial_hostid}
     fi
+    if [ "${ear}" = true ]; then
+      # Disable EAR accounting for main process (if this variable is set, the processes that contain
+      # it will not be considered for power accounting, so it will be unset only in the executors)
+      export EAR_DISABLE_NODE_METRICS=true
+      # Provide a name for EAR to identify the main worker process
+      export EAR_APP_NAME="persistent_worker_starter.sh"
+      # Launch worker with ear
+      EAR_REPORT_PATH="${specific_log_dir}/energy"
+      EAR_REPORT_PREFIX="ear"
+      POST_CMD=
+      WCMD="/bin/bash $WCMD"
+      if [ "${ear_flags}" = true ]; then
+        mkdir -p ${EAR_REPORT_PATH}
+        if [ -z "${EAR_LITE}"  ]; then
+          # EAR_LITE not defined: we rely in srun (ear plugin in slurm)
+          PRE_CMD="--ear=on --ear-user-db=${EAR_REPORT_PATH}/${EAR_REPORT_PREFIX} "
+        else
+          # EAR_LITE is defined: so use erun
+          PRE_CMD="$EAR_INSTALL_PATH/bin/erun \"--ear=on --ear-user-db=${EAR_REPORT_PATH}/${EAR_REPORT_PREFIX} \""
+        fi
+      else
+        if [ -z "${EAR_LITE}"  ]; then
+          PRE_CMD="${ear_flags}"
+        else
+          PRE_CMD="$EAR_INSTALL_PATH/bin/erun ${ear_flags}"
+        fi
+      fi
+      if [ "${log_level}" != "off" ]; then
+        echo "[LAUNCH_COMPSS] Enabling EAR debug:"
+        if [ -z "${HACK_EARL_VERBOSE}"  ]; then
+          export HACK_EARL_VERBOSE=2
+          echo "[LAUNCH_COMPSS] - Using default debug HACK_EARL_VERBOSE=${HACK_EARL_VERBOSE}"
+        else
+          echo "[LAUNCH_COMPSS] - Using overriden HACK_EARL_VERBOSE=${HACK_EARL_VERBOSE}"
+        fi
+        if [ -z "${HACK_PROCS_VERB_FILES}"  ]; then
+          export HACK_PROCS_VERB_FILES=1
+          echo "[LAUNCH_COMPSS] - Using default debug HACK_PROCS_VERB_FILES=${HACK_PROCS_VERB_FILES}"
+        else
+          echo "[LAUNCH_COMPSS] - Using overriden HACK_PROCS_VERB_FILES=${HACK_PROCS_VERB_FILES}"
+        fi
+        export EARL_VERBOSE_PATH="${EAR_REPORT_PATH}/ear_logs/"
+        mkdir -p ${EARL_VERBOSE_PATH}
+      fi
+    fi
     if [ ! -z "${master_node}" ]; then
       if [ "${worker_in_master_cpus}" -ne 0 ]; then
         # Worker in master node
@@ -2136,22 +2229,22 @@ launch() {
                 AUXILIAR_LAUNCH_PARAMS="${QARG_CPUS_PER_TASK} ${worker_in_master_cpus} "
             fi
         fi
+        if [ -n "${het_group}" ]; then
+            AUXILIAR_LAUNCH_PARAMS="${QARG_HET_GROUP}${het_group} ${AUXILIAR_LAUNCH_PARAMS}"
+        fi
 
         if [ "${ear}" = true ]; then
-          # Launch worker with ear
-          if [ "${ear_flags}" = true ]; then
-            mkdir -p ${specific_log_dir}/energy
-            PRE_CMD="$EAR_INSTALL_PATH/bin/erun \"--ear=on --ear-user-db=${specific_log_dir}/energy/ear \""
+          if [ -z "${EAR_LITE}"  ]; then
+            if [ "${log_level}" != "off" ]; then
+              echo "[LAUNCH_COMPSS] Launching worker in master (with ear) with id $hostid and command: ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${master_node} ${PRE_CMD} $WCMD ${POST_CMD}"
+            fi
+            ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${master_node} ${PRE_CMD} $WCMD ${POST_CMD} &
           else
-            PRE_CMD="$EAR_INSTALL_PATH/bin/erun ${ear_flags}"
+            if [ "${log_level}" != "off" ]; then
+              echo "[LAUNCH_COMPSS] Launching worker in master (with ear) with id $hostid and command: ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${master_node} ${PRE_CMD} --program=\"$WCMD\" ${POST_CMD}"
+            fi
+            ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${master_node} ${PRE_CMD} --program="$WCMD" ${POST_CMD} &
           fi
-          POST_CMD=
-          WCMD="/bin/bash $WCMD"
-
-          if [ "${log_level}" != "off" ]; then
-            echo "[LAUNCH_COMPSS] Launching worker in master (with ear) with id $hostid and command: ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${master_node} ${PRE_CMD} --program=\"$WCMD\" ${POST_CMD}"
-          fi
-          ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${master_node} ${PRE_CMD} --program="$WCMD" ${POST_CMD} &
         else
           # Launch normal worker
           if [ "${log_level}" != "off" ]; then
@@ -2171,9 +2264,14 @@ launch() {
       jvm_workers_opts_size=$(echo "${jvm_workers_opts_str}" | wc -w)
       fpga_reprogram_str=$(echo "${fpga_prog}" | tr "," " ")
       fpga_reprogram_size=$(echo "${fpga_prog}" | wc -w)
+      if [ ! -z "${master_node}" ]; then
+        master_name="${master_node}${network}"
+      else
+        master_name="null"
+      fi
       for node in ${worker_nodes}; do
         # worker_cmd id name master_name jvmOptsSize jvmOpts cpus gpus cpuMap gpuMap lot streaming_backend streaming_master_port
-        worker_cmd $hostid "$node${network}" "${master_node}${network}" "${jvm_workers_opts_size}" "${jvm_workers_opts_str}" "${fpga_reprogram_size}" "${fpga_reprogram_str}" "${cpus_per_node}" "${gpus_per_node}" "${fpgas_per_node}" "${cpu_affinity}" "${gpu_affinity}" "${fpga_affinity}" "${io_executors}" "${max_tasks_per_node}" "${streaming}" "${streaming_master_port}"
+        worker_cmd $hostid "$node${network}" "${master_name}" "${jvm_workers_opts_size}" "${jvm_workers_opts_str}" "${fpga_reprogram_size}" "${fpga_reprogram_str}" "${cpus_per_node}" "${gpus_per_node}" "${fpgas_per_node}" "${cpu_affinity}" "${gpu_affinity}" "${fpga_affinity}" "${io_executors}" "${max_tasks_per_node}" "${streaming}" "${streaming_master_port}"
 
         if [ ! -z "${NODE_NAME_QUEUE}" ]; then
             node=$(${NODE_NAME_QUEUE} ${node})
@@ -2184,13 +2282,22 @@ launch() {
                 AUXILIAR_LAUNCH_PARAMS="${QARG_CPUS_PER_TASK} ${cpus_per_node} "
             fi
         fi
+        if [ -n "${het_group}" ]; then
+            AUXILIAR_LAUNCH_PARAMS="${QARG_HET_GROUP}${het_group} ${AUXILIAR_LAUNCH_PARAMS}"
+        fi
 
         if [ "${ear}" = true ]; then
-          WCMD="/bin/bash $WCMD"
-          if [ "${log_level}" != "off" ]; then
-            echo "[LAUNCH_COMPSS] Launching worker (with ear) with id $hostid and command: ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${node} ${PRE_CMD} --program=\"$WCMD\" ${POST_CMD}"
+          if [ -z "${EAR_LITE}"  ]; then
+            if [ "${log_level}" != "off" ]; then
+              echo "[LAUNCH_COMPSS] Launching worker (with ear) with id $hostid and command: ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${node} ${PRE_CMD} $WCMD ${POST_CMD}"
+            fi
+            ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${node} ${PRE_CMD} $WCMD ${POST_CMD} &
+          else
+            if [ "${log_level}" != "off" ]; then
+              echo "[LAUNCH_COMPSS] Launching worker (with ear) with id $hostid and command: ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${node} ${PRE_CMD} --program=\"$WCMD\" ${POST_CMD}"
+            fi
+            ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${node} ${PRE_CMD} --program="$WCMD" ${POST_CMD} &
           fi
-          ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${node} ${PRE_CMD} --program="$WCMD" ${POST_CMD} &
         else
           if [ "${log_level}" != "off" ]; then
             echo "[LAUNCH_COMPSS] Launching worker with id $hostid and command: ${LAUNCH_CMD} ${AUXILIAR_LAUNCH_PARAMS}${LAUNCH_EXTRA_FLAGS}${LAUNCH_PARAMS}${LAUNCH_SEPARATOR}${node} ${PRE_CMD} $WCMD ${POST_CMD}"
@@ -2221,7 +2328,7 @@ launch() {
   fi
 
   # Launching the master
-  if [ ! -z "${master_node}" ]; then
+  if [ ! -z "${master_node}" ] && [ -z "${no_master}" ]; then
     # Launch master
     if [ "${jupyter_notebook}" = false ] && [ "${ipython}" = false ] && [ "${run_command}" = false ]; then
       master_cmd "${master_node}${network}"
@@ -2316,9 +2423,9 @@ load_external_compss_environment() {
       export COMPSS_UUID="${uuid}"
       export COMPSS_LOG_DIR="${specific_log_dir}"
       if [ -z "${master_working_dir}" ]; then
-	  export COMPSS_MASTER_WORKING_DIR="${specific_log_dir}/tmpFiles/"
+        export COMPSS_MASTER_WORKING_DIR="${specific_log_dir}/tmpFiles/"
       else
-	  export COMPSS_MASTER_WORKING_DIR="${master_working_dir}/tmpFiles/"
+        export COMPSS_MASTER_WORKING_DIR="${master_working_dir}/tmpFiles/"
       fi
       export COMPSS_STORAGE_CONF="${storage_conf}"
 }
@@ -2392,6 +2499,7 @@ wait_for_completion() {
   # Wait for Master and Workers to finish
   echo "[LAUNCH_COMPSS] Waiting for application completion"
   wait
+  echo "[LAUNCH_COMPSS] Finished all processes"
 }
 
 ###############################################
@@ -2458,7 +2566,6 @@ cleanup() {
   trap cleanup EXIT
 
   # Create XML files
-  CREATE_WORKING_DIRS=true  # used by xml_project_add_worker_in_master and xml_project_add_workers
   if [ -z "${xmls_phase}" ] || [ "${xmls_phase}" == "all" ]; then
     create_xml_files
   elif [ "${xmls_phase}" == "init" ]; then

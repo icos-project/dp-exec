@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -61,6 +61,13 @@ public @interface MultiNode {
      * @return the number of computing nodes required.
      */
     String computingNodes() default Constants.UNASSIGNED;
+
+    /**
+     * Returns the mpi processes per node.
+     *
+     * @return the mpi processes per node.
+     */
+    String processesPerNode() default "1";
 
     /*
      * METHOD PROPERTIES

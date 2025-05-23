@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,15 +16,18 @@
  */
 package es.bsc.compss.types.data.accessparams;
 
-import es.bsc.compss.components.impl.DataInfoProvider;
 import es.bsc.compss.log.Loggers;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
 import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.info.DataVersion;
 import es.bsc.compss.types.data.params.DataParams;
 import es.bsc.compss.types.request.exceptions.ValueUnawareRuntimeException;
 
 import java.io.Serializable;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -34,12 +37,32 @@ import org.apache.logging.log4j.Logger;
  */
 public abstract class AccessParams<D extends DataParams> implements Serializable {
 
-    public static enum AccessMode {
-        R, // Read
-        W, // Write
-        RW, // ReadWrite
-        C, // Concurrent
-        CV // Commutative
+    public enum AccessMode {
+
+        R(true, false), // Read
+        W(false, true), // Write
+        RW(true, true), // ReadWrite
+        C(true, false), // Concurrent
+        CV(true, true) // Commutative
+        ;
+
+
+        private final boolean read;
+        private final boolean write;
+
+
+        AccessMode(boolean read, boolean write) {
+            this.read = read;
+            this.write = write;
+        }
+
+        public final boolean isRead() {
+            return this.read;
+        }
+
+        public boolean isWrite() {
+            return write;
+        }
     }
 
 
@@ -49,9 +72,10 @@ public abstract class AccessParams<D extends DataParams> implements Serializable
     private static final long serialVersionUID = 1L;
 
     // Component logger
-    protected static final Logger LOGGER = LogManager.getLogger(Loggers.DIP_COMP);
+    protected static final Logger LOGGER = LogManager.getLogger(Loggers.TP_COMP);
     protected static final boolean DEBUG = LOGGER.isDebugEnabled();
 
+    protected final Application app;
     protected final D data;
     protected final AccessMode mode;
 
@@ -82,26 +106,28 @@ public abstract class AccessParams<D extends DataParams> implements Serializable
     /**
      * Creates a new AccessParams instance.
      *
+     * @param app Application accessing the data
      * @param data Data being accessed
      * @param dir operation performed.
      */
-    protected AccessParams(D data, Direction dir) {
+    protected AccessParams(Application app, D data, Direction dir) {
+        this.app = app;
         this.data = data;
         this.mode = getAccessMode(dir);
     }
 
     /**
-     * Returns the Id of the application accessing the value.
-     * 
-     * @return the Id of the application accessing the value
+     * Returns the application accessing the value.
+     *
+     * @return application accessing the value.
      */
-    public final Application getApp() {
-        return data.getApp();
+    public Application getApp() {
+        return app;
     }
 
     /**
      * Returns the data being accessed.
-     * 
+     *
      * @return data being accessed
      */
     public D getData() {
@@ -117,37 +143,73 @@ public abstract class AccessParams<D extends DataParams> implements Serializable
         return this.mode;
     }
 
-    public DataInfo getDataInfo() {
-        return data.getDataInfo();
-    }
-
-    public Integer getDataId() {
-        return data.getDataId();
-    }
-
-    public String getDataDescription() {
+    public final String getDataDescription() {
         return data.getDescription();
     }
 
     /**
      * Verifies that the runtime is aware of the value and the access should be registered.
      *
-     * @param dip DataInfoProvider
      * @throws ValueUnawareRuntimeException the runtime is not aware of the last value of the accessed data
      */
-    public abstract void checkAccessValidity(DataInfoProvider dip) throws ValueUnawareRuntimeException;
-
-    public abstract void registeredAsFirstVersionForData(DataInfo dInfo);
+    public abstract void checkAccessValidity() throws ValueUnawareRuntimeException;
 
     /**
-     * Returns whether the result of the access should be marked as remaining on the Main process memory.
-     * 
-     * @return {@literal true} if the result is to be marked; {@literal false} otherwise.
+     * Registers a new data access.
+     *
+     * @return The registered access Id.
      */
-    public abstract boolean resultRemainOnMain();
+    public final EngineDataAccessId register() {
+        if (DEBUG) {
+            LOGGER.debug("Registering access " + this.getDataDescription());
+        }
+        DataInfo dInfo = this.data.getRegisteredData(this.app);
+        if (dInfo == null) {
+            if (DEBUG) {
+                LOGGER.debug("FIRST access to " + this.getDataDescription());
+            }
+            dInfo = this.data.register(this.app);
+            if (DEBUG) {
+                LOGGER.debug("Registered new data {\"data_id\":" + dInfo.getDataId() + "," + "\"description\":\""
+                    + this.getDataDescription() + "\"}");
+            }
+            DataVersion dv = dInfo.getCurrentDataVersion();
+            this.registerValueForVersion(dv);
+        } else {
+            if (DEBUG) {
+                LOGGER.debug("Subsequent access to data {\"data_id\":" + dInfo.getDataId() + "," + "\"description\":\""
+                    + this.getDataDescription() + "\"}");
+            }
+        }
+        this.externalRegister();
+
+        EngineDataAccessId daId = dInfo.willAccess(this.mode);
+
+        if (DEBUG && daId != null) {
+            LOGGER.debug("Registered " + daId.toDebugString());
+        }
+        return daId;
+    }
+
+    protected abstract void registerValueForVersion(DataVersion dv);
 
     /**
      * Registers the access into an external service.
      */
-    public abstract void externalRegister();
+    protected abstract void externalRegister();
+
+    /**
+     * Obtains the last registed access for the given data.
+     * 
+     * @return last registed access for the given data.
+     */
+    public final EngineDataAccessId getLastRegisteredAccess() {
+        DataInfo dInfo = this.data.getRegisteredData(this.app);
+        // First access to this file
+        if (dInfo == null) {
+            LOGGER.warn(this.getDataDescription() + " has not been accessed before");
+            return null;
+        }
+        return dInfo.getLastAccess(this.mode);
+    }
 }

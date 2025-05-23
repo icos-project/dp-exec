@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -449,7 +449,8 @@ public class MethodWorker extends Worker<MethodResourceDescription> {
     @Override
     public void endTask(MethodResourceDescription consumption) {
         if (DEBUG) {
-            LOGGER.debug("End task received. Releasing resource " + getName());
+            LOGGER.debug(
+                "End task received. Releasing resource " + consumption.getDynamicDescription() + " on " + getName());
         }
         if (consumption.containsCPU()) {
             this.decreaseUsedCPUTaskCount();
@@ -470,7 +471,8 @@ public class MethodWorker extends Worker<MethodResourceDescription> {
     public MethodResourceDescription runTask(MethodResourceDescription consumption) {
         MethodResourceDescription reserved = super.runTask(consumption);
         if (DEBUG) {
-            LOGGER.debug("Run task received. Reserving resource " + consumption + " on " + getName());
+            LOGGER.debug(
+                "Run task received. Reserving resource " + consumption.getDynamicDescription() + " on " + getName());
         }
         if (reserved != null) {
             // Consumption can be hosted

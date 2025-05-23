@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@ import es.bsc.compss.nio.master.NIOJob;
 import es.bsc.compss.types.COMPSsNode;
 import es.bsc.compss.types.COMPSsWorker;
 import es.bsc.compss.types.NodeMonitor;
+import es.bsc.compss.types.data.LogicalData;
+import es.bsc.compss.types.data.location.DataLocation;
 import es.bsc.compss.types.job.JobHistory;
 import es.bsc.compss.types.resources.configuration.Configuration;
 import es.bsc.compss.types.resources.configuration.MethodConfiguration;
@@ -162,6 +164,11 @@ public class CommAgentAdaptor extends NIOAdaptor implements CommAgent {
     protected void retrieveAdditionalJobFiles(Connection connection, boolean success, int jobId, int taskId,
         JobHistory history) {
         // Agents do not retrieve information of how the job finished.
+    }
+
+    @Override
+    protected void updateCopiedData(LogicalData tgtData, DataLocation actualLocation) {
+        // Do nothing. ActualLocation could contain a proxy location, which is not currently supported.
     }
 
     // ownAgent needed as an interface to avoid circular dependencies

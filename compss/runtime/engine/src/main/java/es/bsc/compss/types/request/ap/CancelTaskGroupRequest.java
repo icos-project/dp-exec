@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 package es.bsc.compss.types.request.ap;
 
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.Task;
@@ -31,7 +29,7 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 
 
-public class CancelTaskGroupRequest extends APRequest {
+public class CancelTaskGroupRequest implements APRequest {
 
     private final Application app;
     private final String groupName;
@@ -66,13 +64,12 @@ public class CancelTaskGroupRequest extends APRequest {
     }
 
     @Override
-    public void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td)
-        throws ShutdownException, COMPSsException {
+    public void process(AccessProcessor ap, TaskDispatcher td) throws ShutdownException, COMPSsException {
         LOGGER.debug("Cancelling tasks of group " + groupName);
-        cancelGroup(ta, td);
+        cancelGroup(td);
     }
 
-    protected final void cancelGroup(TaskAnalyser ta, TaskDispatcher td) {
+    protected final void cancelGroup(TaskDispatcher td) {
         TaskGroup tg = app.removeGroup(groupName);
         if (tg != null) {
             List<Task> tasks = tg.getTasks();

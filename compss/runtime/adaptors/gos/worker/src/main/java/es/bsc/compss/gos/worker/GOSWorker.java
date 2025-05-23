@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -343,8 +343,7 @@ public class GOSWorker implements InvocationContext {
                     argPosition + BinaryDefinition.NUM_PARAMS, lang);
             // why there is no MPMD MPI case?
             case MPI:
-                String[] container = new String[3];
-                return genImplemenationDefinition(new MPIDefinition(args, argPosition, container), debug, args,
+                return genImplemenationDefinition(new MPIDefinition(args, argPosition), debug, args,
                     argPosition + MPIDefinition.NUM_PARAMS, lang);
             case COMPSs:
                 return genImplemenationDefinition(new COMPSsDefinition(args, argPosition), debug, args,
@@ -379,6 +378,7 @@ public class GOSWorker implements InvocationContext {
         ImplementationDescription<MethodResourceDescription, AbstractMethodImplementationDefinition> implDesc =
             new ImplementationDescription<>(implDef, "", false, null, null, null);
         AbstractMethodImplementation impl = new AbstractMethodImplementation(0, 0, implDesc);
+        System.out.println("Implementation:" + impl.toString());
         return new GOSInvocation(debug, lang, impl, args, argPosition);
     }
 

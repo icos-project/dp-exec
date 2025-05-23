@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import es.bsc.compss.components.impl.TaskScheduler;
 import es.bsc.compss.scheduler.fullgraph.multiobjective.config.MOConfiguration;
 import es.bsc.compss.scheduler.fullgraph.multiobjective.types.MOProfile;
 import es.bsc.compss.scheduler.fullgraph.multiobjective.types.MOScore;
+import es.bsc.compss.scheduler.types.ActionOrchestrator;
 import es.bsc.compss.scheduler.types.AllocatableAction;
 import es.bsc.compss.scheduler.types.Score;
 import es.bsc.compss.types.parameter.Parameter;
@@ -38,8 +39,11 @@ public class MOScheduler extends TaskScheduler {
 
     /**
      * Creates a new MOScheduler.
+     *
+     * @param orchestrator element ordering the execution of actions
      */
-    public MOScheduler() {
+    public MOScheduler(ActionOrchestrator orchestrator) {
+        super(orchestrator);
         MOConfiguration.load();
     }
 
@@ -83,7 +87,7 @@ public class MOScheduler extends TaskScheduler {
 
     /**
      * Returns the action score of the given action.
-     * 
+     *
      * @param action Action to evaluate.
      * @return The action score.
      */

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
  */
 package es.bsc.compss.types.request.ap;
 
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.tracing.TraceEvent;
 
@@ -47,8 +46,9 @@ public class BarrierGroupRequest extends BarrierRequest {
     }
 
     @Override
-    public void handleBarrier(TaskAnalyser ta) {
-        ta.barrierGroup(this);
+    public void handleBarrier() {
+        Application app = this.getApp();
+        app.reachesGroupBarrier(this.groupName, this);
     }
 
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ public class DataLocality extends SchedulingInformation {
                 DependencyParameter dp = (DependencyParameter) p;
                 DataInstanceId dId = null;
                 DataAccessId access = dp.getDataAccessId();
-                if (access.isRead()) {
+                if (access != null && access.isRead()) {
                     ReadingDataAccessId raId = (ReadingDataAccessId) access;
                     dId = raId.getReadDataInstance();
                 }

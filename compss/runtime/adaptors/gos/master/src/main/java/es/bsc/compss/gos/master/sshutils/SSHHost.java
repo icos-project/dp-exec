@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -158,6 +158,7 @@ public class SSHHost {
     public SSHChannel killJob(GOSJob job, String cancelScript, String outFile, String errFile)
         throws JSchException, FileNotFoundException {
         String pathResponse = job.getResponseFile();
+        LOGGER.info(dbgPrefix + "Executing kill Job " + cancelScript + " " + pathResponse);
         return SSHCommand.killJob(this, cancelScript, pathResponse, job, outFile, errFile);
     }
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -50,16 +50,17 @@ import es.bsc.compss.util.EnvironmentLoader;
 import es.bsc.compss.util.ErrorManager;
 import es.bsc.compss.util.ResourceManager;
 
-import java.util.List;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import java.io.IOException;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -123,6 +124,11 @@ public class RESTAgent implements AgentInterface<RESTAgentConf> {
             throw new AgentException(launcher.getStartError());
         } else {
             this.server = launcher.getServer();
+        }
+        try {
+            ZenohMonitorLauncher.startMonitor();
+        } catch (IOException ioe) {
+            LOGGER.info("Could not start Zenoh monitor");
         }
     }
 
@@ -366,7 +372,7 @@ public class RESTAgent implements AgentInterface<RESTAgentConf> {
         }
         long appId;
         RESTAgentRequestListener requestListener = request.getRequestListener();
-        AppTaskMonitor monitor = new AppTaskMonitor(arguments, target, results, this, requestListener);
+        RESTAppMonitor monitor = new RESTAppMonitor(arguments, target, results, this, requestListener);
 
         // COMPUTE SIGNATURES
         StringBuilder typesSB = new StringBuilder();
@@ -394,11 +400,9 @@ public class RESTAgent implements AgentInterface<RESTAgentConf> {
         MethodResourceDescription requirements = MethodResourceDescription.EMPTY_FOR_CONSTRAINTS;
         CoreElementDefinition ced = new CoreElementDefinition();
         ced.setCeSignature(ceSignature);
-        String[] container = new String[] { null,
-            null,
-            null };
+
         ImplementationDescription<?, ?> implDef = ImplementationDescription.defineImplementation("METHOD",
-            implSignature, false, requirements, request.getProlog(), request.getEpilog(), container, typeArgs);
+            implSignature, false, requirements, request.getProlog(), request.getEpilog(), null, typeArgs);
         ced.addImplementation(implDef);
         try {
             appId = Agent.runTask(lang, ced, ceiClass, arguments, target, results, monitor, OnFailure.FAIL);

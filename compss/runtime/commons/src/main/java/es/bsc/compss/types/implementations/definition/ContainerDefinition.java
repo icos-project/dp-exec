@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,11 +16,9 @@
  */
 package es.bsc.compss.types.implementations.definition;
 
-import es.bsc.compss.types.annotations.Constants;
 import es.bsc.compss.types.implementations.MethodType;
 import es.bsc.compss.types.implementations.TaskType;
-import es.bsc.compss.types.resources.ContainerDescription;
-import es.bsc.compss.types.resources.ContainerDescription.ContainerEngine;
+import es.bsc.compss.types.implementations.definition.ContainerDescription.ContainerEngine;
 import es.bsc.compss.util.EnvironmentLoader;
 
 import java.io.IOException;
@@ -209,10 +207,10 @@ public class ContainerDefinition implements AbstractMethodImplementationDefiniti
     }
 
     @Override
-    public String toMethodDefinitionFormat() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[CONTAINER=").append(this.container);
-        sb.append("]");
+    public String toJSON() {
+        StringBuilder sb = new StringBuilder("{\"type\":\"CONTAINER\",");
+        sb.append("\"container\":").append(this.container == null ? null : this.container.toJSON());
+        sb.append("}");
         return sb.toString();
     }
 

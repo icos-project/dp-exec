@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -77,6 +77,7 @@ import es.bsc.compss.types.tracing.TraceEvent;
 import es.bsc.compss.types.tracing.TraceEventType;
 import es.bsc.compss.util.Tracer;
 import es.bsc.compss.worker.COMPSsException;
+import es.bsc.compss.worker.TimeOutInvokerTask;
 import es.bsc.compss.worker.TimeOutTask;
 import es.bsc.wdc.affinity.ThreadAffinity;
 
@@ -85,9 +86,10 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.TimerTask;
 import java.util.concurrent.Semaphore;
 
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -467,10 +469,12 @@ public class Executor implements Runnable, InvocationRunner {
 
     private void runInvocation(ExecutionSandbox twd) throws COMPSsException, JobExecutionException {
         Invoker invoker;
+        TimerTask timerTask = null;
         switch (invocation.getMethodImplementation().getMethodType()) {
             case METHOD:
             case MULTI_NODE:
                 invoker = selectNativeMethodInvoker(twd, resources);
+                timerTask = new TimeOutTask(invocation.getTaskId());
                 break;
             case CONTAINER:
                 invoker = new ContainerInvoker(this.context, invocation, twd, resources);
@@ -505,8 +509,9 @@ public class Executor implements Runnable, InvocationRunner {
             default:
                 throw new JobExecutionException("Undefined invoker. It could be cause by an incoherent task type");
         }
-
-        TimeOutTask timerTask = new TimeOutTask(invocation.getTaskId());
+        if (timerTask == null) {
+            timerTask = new TimeOutInvokerTask(invocation.getTaskId(), invoker);
+        }
         try {
             this.platform.registerRunningJob(invocation, invoker, timerTask);
             invoker.runInvocation(this);
@@ -616,7 +621,8 @@ public class Executor implements Runnable, InvocationRunner {
         if (Tracer.isActivated()) {
             emitAffinityChangeEvents();
         }
-        if (this.resources.getAssignedCPUs() != null && this.resources.getAssignedCPUs().length > 0) {
+        if (this.resources != null && this.resources.getAssignedCPUs() != null
+            && this.resources.getAssignedCPUs().length > 0) {
             try {
                 ThreadAffinity.setCurrentThreadAffinity(this.resources.getAssignedCPUs());
             } catch (Exception e) {
@@ -685,7 +691,7 @@ public class Executor implements Runnable, InvocationRunner {
      * ---------------------- SANDBOX MANAGEMENT --------------------------------
      */
 
-    private ExecutionSandbox createTaskSandboxWithTimer() throws IOException {
+    private ExecutionSandbox createTaskSandboxWithTimer() throws Exception {
         // Start timer
         long timeSandboxStart = 0L;
         timeSandboxStart = System.nanoTime();
@@ -703,9 +709,9 @@ public class Executor implements Runnable, InvocationRunner {
      * Creates a sandbox for a task.
      *
      * @return Sandbox dir
-     * @throws IOException Error creating sandbox
+     * @throws Exception Error creating sandbox
      */
-    private ExecutionSandbox createTaskSandbox() throws IOException {
+    private ExecutionSandbox createTaskSandbox() throws Exception {
         final int jobId = invocation.getJobId();
         LOGGER.debug("Creating task sandbox for Job " + jobId);
 
@@ -744,10 +750,10 @@ public class Executor implements Runnable, InvocationRunner {
                     if (!compssImpl.getWorkingDir().equals(Constants.UNASSIGNED)) {
                         specificWD = compssImpl.getWorkingDir() + File.separator;
                     }
-                    if (compssImpl.getParentAppId() != null) {
-                        specificWD += compssImpl.getParentAppId() + File.separator;
-                    }
-                    specificWD += "compss_job_" + invocation.getJobId() + "_" + invocation.getHistory().name();
+                    // if (compssImpl.getParentAppId() != null) {
+                    // specificWD += compssImpl.getParentAppId() + File.separator;
+                    // }
+                    // specificWD += "compss_job_" + invocation.getJobId() + "_" + invocation.getHistory().name();
                     break;
                 case DECAF:
                     DecafDefinition decafImpl = (DecafDefinition) impl.getDefinition();

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
  */
 package es.bsc.compss.types.data;
 
+import es.bsc.compss.COMPSsConstants;
 import es.bsc.compss.comm.Comm;
+
 import java.io.Serializable;
 
 
@@ -31,7 +33,7 @@ public class DataInstanceId implements Serializable, Comparable<DataInstanceId> 
     private static final long serialVersionUID = 1L;
 
     // Time stamp
-    private static String timeStamp = Long.toString(System.currentTimeMillis());
+    private static final String label;
 
     // Data instance identifier fields
     private int dataId;
@@ -42,6 +44,14 @@ public class DataInstanceId implements Serializable, Comparable<DataInstanceId> 
 
     // LogicalData associated to this data version
     private LogicalData data;
+
+    static {
+        String sign = System.getProperty(COMPSsConstants.EXEC_LABEL);
+        if (sign == null || sign.isEmpty()) {
+            sign = Long.toString(System.currentTimeMillis());
+        }
+        label = sign;
+    }
 
 
     /**
@@ -60,7 +70,7 @@ public class DataInstanceId implements Serializable, Comparable<DataInstanceId> 
     public DataInstanceId(int dataId, int versionId) {
         this.dataId = dataId;
         this.versionId = versionId;
-        this.renaming = "d" + dataId + "v" + versionId + "_" + timeStamp + ".IT";
+        this.renaming = "d" + dataId + "v" + versionId + "_" + label + ".IT";
         this.data = Comm.registerData(renaming);
     }
 
@@ -115,7 +125,14 @@ public class DataInstanceId implements Serializable, Comparable<DataInstanceId> 
         }
         int dataId = Integer.parseInt(renaming.substring(dIdx + 1, vIdx));
         int previousVersion = Integer.parseInt(renaming.substring(vIdx + 1, tIndex)) - 1;
-        return "d" + dataId + "v" + previousVersion + "_" + timeStamp + ".IT";
+        return "d" + dataId + "v" + previousVersion + "_" + label + ".IT";
+    }
+
+    /**
+     * Deletes the DataInstance.
+     */
+    public void delete() {
+        Comm.removeData(this.getRenaming(), true);
     }
 
     // Comparable interface implementation

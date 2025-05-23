@@ -67,7 +67,7 @@
   ####################
 
   # Get parameters
-  if [ $# -ne 16 ]; then
+  if [ $# -ne 17 ]; then
     usage
   fi
 
@@ -88,7 +88,7 @@
   impi_version=${14}
   autoparallel=${15}
   c_binding=${16}
-
+  extrae_no_mpi=${17}
   SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   TMP_DIR=${SCRIPT_DIR}/tmp
 
@@ -138,6 +138,7 @@
   mkdir -p "${targetDir}/Tools"
   mkdir -p "${targetDir}/Tools/monitor"
   mkdir -p "${targetDir}/Tools/storage"
+  mkdir -p "${targetDir}/Tools/reproducibility_service"
   mkdir -p "${targetDir}/Bindings"
   mkdir -p "${targetDir}/Bindings/bindings-common"
   mkdir -p "${targetDir}/cli"
@@ -160,12 +161,14 @@
 
   echo "---- Install extrae ----"
   cd "${TMP_DIR}"/dependencies || exit 1
-  # Sequential installation
-  ./install_extrae.sh "${TMP_DIR}"/dependencies/extrae "${targetDir}"/Dependencies/extrae false
-  ev=$?
-  if [ $ev -ne 0 ]; then
-    echo "ERROR: Failed to install extrae sequential dependency"
-    exit $ev
+  if [ "${extrae_no_mpi}" == "true" ]; then
+    # Sequential installation
+    ./install_extrae.sh "${TMP_DIR}"/dependencies/extrae "${targetDir}"/Dependencies/extrae false
+    ev=$?
+    if [ $ev -ne 0 ]; then
+      echo "ERROR: Failed to install extrae sequential dependency"
+      exit $ev
+    fi
   fi
 
   # OpenMPI
@@ -296,6 +299,10 @@
   cp "${TMP_DIR}"/compss/tools/monitor/target/classes/server.xml "${targetDir}"/Tools/monitor/apache-tomcat/conf/
   cp "${TMP_DIR}"/compss/tools/monitor/target/classes/*log4j* "${targetDir}"/Tools/monitor/
 
+  # REPRODUCIBILITY SERVICE
+  echo "--- Deploying Reproducibility Service"
+  cp -r "${TMP_DIR}/compss/tools/reproducibility_service/" "${targetDir}/Tools/"
+
   # BINDINGS DEPLOYMENT
   # - Binding-common
   echo "- Deploying bindings-common files"
@@ -341,7 +348,7 @@
       module load ${py3_modules}
     fi
     # If installed, unify installations (second boolean to true)
-    ./install "${targetDir}"/Bindings/python false python3
+    ./install.sh "${targetDir}"/Bindings/python false python3
     ev=$?
     if [ $ev -ne 0 ]; then
       echo "ERROR: Failed to install Python-binding for Python 3"
@@ -366,7 +373,7 @@
             #shellcheck disable=SC2086
             module load ${py3_mod}
             # If installed, unify installations (second boolean to true)
-            ./install "${targetDir}"/Bindings/python false python3
+            ./install.sh "${targetDir}"/Bindings/python false python3
             ev=$?
             if [ $ev -ne 0 ]; then
               echo "ERROR: Failed to install Python-binding for Python 3"

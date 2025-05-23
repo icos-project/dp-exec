@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -119,9 +119,8 @@ class CommAgentJob extends NIOJob {
         String ceSignature = ce.getSignature();
         CommTask nt = new CommTask(this.getLang(), DEBUG, ceSignature, absMethodImpl,
             this.taskParams.getParallelismSource(), this.taskParams.hasTargetObject(), this.taskParams.getNumReturns(),
-            params, numParams, absMethodImpl.getRequirements(), slaveWorkersNodeNames, this.taskId,
-            this.impl.getTaskType(), this.jobId, this.history, this.transferId, this.getOnFailure(), this.getTimeOut(),
-            CommAgentAdaptor.LOCAL_RESOURCE);
+            params, slaveWorkersNodeNames, this.taskId, this.jobId, this.history, this.transferId, this.getOnFailure(),
+            this.getTimeOut(), CommAgentAdaptor.LOCAL_RESOURCE);
 
         return nt;
     }

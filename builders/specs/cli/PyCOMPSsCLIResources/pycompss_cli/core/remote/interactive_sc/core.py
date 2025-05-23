@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -213,7 +213,7 @@ def connect_job(scripts_path, job_id, login_info, modules, app_path, port_forwar
             elif line[0] == 'SERVER':
                 try:
                     server_out = ' '.join(line[1:])
-                    raw_token = re.search("token=\w*", server_out).group(0)
+                    raw_token = re.search(r"token=\w*", server_out).group(0)
                     token = raw_token.split('=')[1]
                 except AttributeError:
                     __display_error(ERROR_JUPYTER_SERVER)

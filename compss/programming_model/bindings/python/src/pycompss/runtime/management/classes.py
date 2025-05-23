@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ This file contains the internal classes.
 """
 
 
-class SupportedFunctionTypes:
+class SupportedFunctionTypes:  # pylint: disable=too-few-public-methods
     """Used as enum to identify the function type."""
 
     FUNCTION = 1
@@ -32,11 +32,11 @@ class SupportedFunctionTypes:
     CLASS_METHOD = 3
 
 
-class Future:
+class Future:  # pylint: disable=too-few-public-methods
     """Future object class definition."""
 
 
-class EmptyReturn:
+class EmptyReturn:  # pylint: disable=too-few-public-methods
     """For functions with empty return."""
 
 

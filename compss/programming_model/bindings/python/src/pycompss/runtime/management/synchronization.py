@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ PyCOMPSs Binding - Management - Object Synchronization.
 This file contains the object synchronization core methods.
 """
 
+import logging
 from pycompss.runtime.management.COMPSs import COMPSs
 from pycompss.util.context import CONTEXT
 from pycompss.runtime.management.classes import Future
@@ -35,8 +36,6 @@ from pycompss.util.storages.persistent import get_id
 from pycompss.util.storages.persistent import is_psco
 from pycompss.util.typing_helper import typing
 
-# Setup LOGGER
-import logging
 
 LOGGER = logging.getLogger(__name__)
 

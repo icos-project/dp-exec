@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,19 +18,25 @@ package es.bsc.compss.types.resources;
 
 import es.bsc.compss.types.implementations.Implementation;
 import es.bsc.compss.types.implementations.TaskType;
+import es.bsc.compss.types.resources.components.Processor;
 
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 
 public class HTTPResourceDescription extends WorkerResourceDescription {
 
     private int connections;
-    // nm: list or just a string??
     private List<String> services;
 
+
+    public HTTPResourceDescription() {
+        this.services = new LinkedList<>();
+    }
 
     public HTTPResourceDescription(List<String> services, int connections) {
         this.services = services;
@@ -107,7 +113,22 @@ public class HTTPResourceDescription extends WorkerResourceDescription {
 
     @Override
     public String toString() {
-        return "[HTTP " + "CONNECTIONS=" + this.connections + "]";
+        StringBuilder sb = new StringBuilder("{");
+        sb.append("\"connections\":").append(this.connections).append(",");
+        sb.append("\"services\":[");
+
+        Iterator<String> servicesItr = this.services.iterator();
+        String service;
+        if (servicesItr.hasNext()) {
+            service = servicesItr.next();
+            sb.append("\"").append(service).append("\"");
+        }
+        while (servicesItr.hasNext()) {
+            service = servicesItr.next();
+            sb.append(",\"").append(service).append("\"");
+        }
+        sb.append("]}");
+        return sb.toString();
     }
 
     @Override
@@ -127,7 +148,7 @@ public class HTTPResourceDescription extends WorkerResourceDescription {
 
     @Override
     public String getDynamicDescription() {
-        return "Connections:" + this.connections;
+        return "{\"connections\":" + this.connections + "}";
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ public class AbstractMethodImplementation extends Implementation {
     }
 
     public String getMethodDefinition() {
-        return getDescription().getDefinition().toMethodDefinitionFormat();
+        return getDescription().getDefinition().toJSON();
     }
 
     public MethodType getMethodType() {

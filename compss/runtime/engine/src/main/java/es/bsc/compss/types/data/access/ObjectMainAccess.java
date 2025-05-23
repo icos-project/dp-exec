@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@ import es.bsc.compss.comm.Comm;
 import es.bsc.compss.exceptions.CannotLoadException;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataAccessId;
-import es.bsc.compss.types.data.DataAccessId.ReadingDataAccessId;
-import es.bsc.compss.types.data.DataAccessId.WritingDataAccessId;
-import es.bsc.compss.types.data.DataInstanceId;
+import es.bsc.compss.types.data.EngineDataInstanceId;
 import es.bsc.compss.types.data.LogicalData;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.ReadingDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.WritingDataAccessId;
 import es.bsc.compss.types.data.accessparams.ObjectAccessParams;
 import es.bsc.compss.types.data.location.DataLocation;
 import es.bsc.compss.types.data.location.ProtocolType;
@@ -39,8 +39,7 @@ import java.util.concurrent.Semaphore;
 /**
  * Handling of an access from the main code to an object.
  */
-public class ObjectMainAccess<V extends Object, D extends ObjectData, P extends ObjectAccessParams<V, D>>
-    extends MainAccess<V, D, P> {
+public class ObjectMainAccess<V, D extends ObjectData, P extends ObjectAccessParams<V, D>> extends MainAccess<V, D, P> {
 
     private static final String ERROR_OBJECT_LOAD = "ERROR: Cannot load object from storage (file or PSCO)";
 
@@ -54,14 +53,19 @@ public class ObjectMainAccess<V extends Object, D extends ObjectData, P extends 
      * @param code Hashcode of the associated object.
      * @return new ObjectAccessParams instance
      */
-    public static final <T extends Object> ObjectMainAccess<T, ObjectData, ObjectAccessParams<T, ObjectData>>
+    public static final <T> ObjectMainAccess<T, ObjectData, ObjectAccessParams<T, ObjectData>>
         constructOMA(Application app, Direction dir, T value, int code) {
         ObjectAccessParams<T, ObjectData> oap = ObjectAccessParams.constructObjectAP(app, dir, value, code);
-        return new ObjectMainAccess<>(oap);
+        return new ObjectMainAccess<>(app, oap);
     }
 
-    protected ObjectMainAccess(P params) {
-        super(params);
+    protected ObjectMainAccess(Application app, P params) {
+        super(app, params);
+    }
+
+    @Override
+    public boolean resultRemainOnMain() {
+        return true;
     }
 
     @Override
@@ -70,18 +74,18 @@ public class ObjectMainAccess<V extends Object, D extends ObjectData, P extends 
     }
 
     @Override
-    public V fetch(DataAccessId daId) {
-        if (DEBUG) {
-            LOGGER.debug("Request object transfer " + daId.getDataId());
+    public V fetch(EngineDataAccessId daId) {
+        if (API_DEBUG) {
+            LOGGER_API.debug("Request object transfer " + daId.getDataId());
         }
-        DataInstanceId diId = ((ReadingDataAccessId) daId).getReadDataInstance();
+        EngineDataInstanceId diId = ((ReadingDataAccessId) daId).getReadDataInstance();
         String sourceName = diId.getRenaming();
-        if (DEBUG) {
-            LOGGER.debug("Requesting getting object " + sourceName);
+        if (API_DEBUG) {
+            LOGGER_API.debug("Requesting getting object " + sourceName);
         }
 
         V newValue = null;
-        DataInstanceId wId = ((WritingDataAccessId) daId).getWrittenDataInstance();
+        EngineDataInstanceId wId = ((WritingDataAccessId) daId).getWrittenDataInstance();
         String wRename = wId.getRenaming();
 
         LogicalData ld = diId.getData();
@@ -90,12 +94,12 @@ public class ObjectMainAccess<V extends Object, D extends ObjectData, P extends 
         } else {
             try {
                 newValue = fetchObject(ld, daId, sourceName);
-                if (DEBUG) {
-                    LOGGER.debug("Object retrieved. Set new version to: " + wRename);
+                if (API_DEBUG) {
+                    LOGGER_API.debug("Object retrieved. Set new version to: " + wRename);
                 }
             } catch (Exception e) {
                 String errMsg = ERROR_OBJECT_LOAD + ": " + ld.getName();
-                LOGGER.fatal(errMsg, e);
+                LOGGER_API.fatal(errMsg, e);
                 ErrorManager.fatal(errMsg, e);
             }
         }
@@ -103,7 +107,7 @@ public class ObjectMainAccess<V extends Object, D extends ObjectData, P extends 
         return newValue;
     }
 
-    private V fetchObject(LogicalData ld, DataAccessId daId, String sourceName) throws CannotLoadException {
+    private V fetchObject(LogicalData ld, EngineDataAccessId daId, String sourceName) throws CannotLoadException {
         if (ld.isInMemory()) {
             if (!daId.isPreserveSourceData() && ld.getKnownAlias().size() == 1) {
                 return (V) ld.removeValue();
@@ -115,8 +119,8 @@ public class ObjectMainAccess<V extends Object, D extends ObjectData, P extends 
                 }
             }
         } else {
-            if (DEBUG) {
-                LOGGER.debug(
+            if (API_DEBUG) {
+                LOGGER_API.debug(
                     "Object " + sourceName + " not in memory. Requesting tranfers to " + Comm.getAppHost().getName());
             }
             DataLocation targetLocation = null;

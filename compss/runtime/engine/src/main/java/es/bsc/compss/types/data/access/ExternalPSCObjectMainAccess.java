@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package es.bsc.compss.types.data.access;
 import es.bsc.compss.comm.Comm;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataAccessId;
-import es.bsc.compss.types.data.DataAccessId.ReadingDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.ReadingDataAccessId;
 import es.bsc.compss.types.data.accessparams.ExternalPSCObjectAccessParams;
 import es.bsc.compss.types.data.params.ExternalPSCObjectData;
 
@@ -43,11 +43,16 @@ public class ExternalPSCObjectMainAccess
     public static final ExternalPSCObjectMainAccess constructEPOMA(Application app, Direction dir, String pscoId,
         int hashCode) {
         ExternalPSCObjectAccessParams epoap = ExternalPSCObjectAccessParams.constructEPOAP(app, dir, pscoId, hashCode);
-        return new ExternalPSCObjectMainAccess(epoap);
+        return new ExternalPSCObjectMainAccess(app, epoap);
     }
 
-    protected ExternalPSCObjectMainAccess(ExternalPSCObjectAccessParams params) {
-        super(params);
+    protected ExternalPSCObjectMainAccess(Application app, ExternalPSCObjectAccessParams params) {
+        super(app, params);
+    }
+
+    @Override
+    public boolean resultRemainOnMain() {
+        return false;
     }
 
     /**
@@ -57,7 +62,7 @@ public class ExternalPSCObjectMainAccess
      * @return Location of the transferred open file.
      */
     @Override
-    public String fetch(DataAccessId daId) {
+    public String fetch(EngineDataAccessId daId) {
         // TODO: Check if the object was already piggybacked in the task notification
         String lastRenaming = ((ReadingDataAccessId) daId).getReadDataInstance().getRenaming();
         return Comm.getData(lastRenaming).getPscoId();
@@ -67,4 +72,5 @@ public class ExternalPSCObjectMainAccess
     public boolean isAccessFinishedOnRegistration() {
         return false;
     }
+
 }

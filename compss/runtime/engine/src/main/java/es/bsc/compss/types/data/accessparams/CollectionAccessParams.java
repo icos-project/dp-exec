@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,12 +17,10 @@
 package es.bsc.compss.types.data.accessparams;
 
 import es.bsc.compss.comm.Comm;
-import es.bsc.compss.components.impl.DataInfoProvider;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataInstanceId;
-import es.bsc.compss.types.data.DataVersion;
-import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.info.DataVersion;
 import es.bsc.compss.types.data.params.CollectionData;
 import es.bsc.compss.types.request.exceptions.ValueUnawareRuntimeException;
 
@@ -48,19 +46,18 @@ public class CollectionAccessParams extends AccessParams<CollectionData> {
     }
 
     private CollectionAccessParams(Application app, Direction dir, String collectionId) {
-        super(new CollectionData(app, collectionId), dir);
+        super(app, new CollectionData(collectionId), dir);
     }
 
     @Override
-    public void checkAccessValidity(DataInfoProvider dip) throws ValueUnawareRuntimeException {
+    public void checkAccessValidity() throws ValueUnawareRuntimeException {
         // Accesses to collections are always valids.
     }
 
     @Override
-    public void registeredAsFirstVersionForData(DataInfo dInfo) {
-        DataVersion dv = dInfo.getCurrentDataVersion();
+    protected void registerValueForVersion(DataVersion dv) {
         if (mode != AccessMode.W) {
-            DataInstanceId lastDID = dv.getDataInstanceId();
+            EngineDataInstanceId lastDID = dv.getDataInstanceId();
             String renaming = lastDID.getRenaming();
             // Null until the two-step transfer method is implemented
             Comm.registerCollection(renaming, null);
@@ -70,12 +67,7 @@ public class CollectionAccessParams extends AccessParams<CollectionData> {
     }
 
     @Override
-    public boolean resultRemainOnMain() {
-        return false;
-    }
-
-    @Override
-    public void externalRegister() {
+    protected void externalRegister() {
         // Do nothing. No need to register the access anywhere.
     }
 }

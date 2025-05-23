@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.util.Iterator;
 import java.util.List;
 
 
@@ -60,12 +61,17 @@ public class ResourcesExternalAdaptorPropertiesSerializable extends ResourcesExt
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("REAPS=");
-        for (ResourcesPropertyAdaptorType p : this.getProperty()) {
-            sb.append("[");
-            sb.append(p.toString());
-            sb.append("]");
+        sb.append("{\"properties\":[");
+        Iterator<ResourcesPropertyAdaptorType> itr = this.getProperty().iterator();
+        if (itr.hasNext()) {
+            ResourcesPropertyAdaptorType p = itr.next();
+            sb.append(p);
+            while (itr.hasNext()) {
+                p = itr.next();
+                sb.append("," + p);
+            }
         }
+        sb.append("]}");
         return sb.toString();
     }
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -310,4 +310,11 @@ public class Processor implements Serializable {
         return this.computingUnits == MethodResourceDescription.UNASSIGNED_INT;
     }
 
+    @Override
+    public String toString() {
+        return "{" + "\"type\":\"" + this.getType().toString() + "\"," + "\"computing_units\":"
+            + this.getComputingUnits() + "," + "\"speed\":" + this.getSpeed() + "," + "\"internal_memory\":"
+            + this.getInternalMemory() + "," + "\"architecture\":\"" + this.getArchitecture() + "\","
+            + "\"prop_name\":\"" + this.getPropName() + "\"," + "\"prop_value\":\"" + this.getPropValue() + "\"" + "}";
+    }
 }

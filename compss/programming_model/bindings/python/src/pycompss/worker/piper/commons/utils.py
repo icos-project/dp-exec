@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -139,7 +139,9 @@ class PiperWorkerConfiguration:
             HEADER + "log_dir        : " + str(GLOBALS.get_log_directory())
         )
         logger.debug(
-            HEADER + "analysis_dir   : " + str(GLOBALS.get_analysis_directory)
+            HEADER
+            + "analysis_dir   : "
+            + str(GLOBALS.get_analysis_directory())
         )
         logger.debug(HEADER + "Nesting        : " + str(self.nesting))
         logger.debug(HEADER + "Debug          : " + str(self.debug))

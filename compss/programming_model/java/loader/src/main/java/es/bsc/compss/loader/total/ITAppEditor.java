@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -89,6 +89,8 @@ public class ITAppEditor extends ExprEditor {
     private String itORVar;
     private String itAppIdVar;
     private CtClass appClass;
+    private String renamedClassName;
+    private String originalClassName;
 
 
     /**
@@ -103,7 +105,7 @@ public class ITAppEditor extends ExprEditor {
      * @param appClass Application main class.
      */
     public ITAppEditor(Method[] remoteMethods, CtMethod[] instrCandidates, String itApiVar, String itSRVar,
-        String itORVar, String itAppIdVar, CtClass appClass) {
+        String itORVar, String itAppIdVar, CtClass appClass, String originalClassName) {
 
         super();
         this.remoteMethods = remoteMethods;
@@ -113,6 +115,12 @@ public class ITAppEditor extends ExprEditor {
         this.itORVar = itORVar;
         this.itAppIdVar = itAppIdVar;
         this.appClass = appClass;
+        if (originalClassName != null) {
+            this.renamedClassName = appClass.getName();
+        } else {
+            this.renamedClassName = null;
+        }
+        this.originalClassName = originalClassName;
     }
 
     /**
@@ -202,7 +210,7 @@ public class ITAppEditor extends ExprEditor {
         CtMethod calledMethod = null;
         try {
             calledMethod = mc.getMethod();
-            declaredMethod = LoaderUtils.checkRemote(calledMethod, remoteMethods);
+            declaredMethod = LoaderUtils.checkRemote(calledMethod, remoteMethods, originalClassName, renamedClassName);
         } catch (NotFoundException e) {
             throw new CannotCompileException(e);
         }
@@ -213,9 +221,12 @@ public class ITAppEditor extends ExprEditor {
                 LOGGER.debug("Replacing task method call " + mc.getMethodName());
             }
 
+            String taskClassName = mc.getClassName();
+            if (renamedClassName != null && taskClassName.equals(renamedClassName)) {
+                taskClassName = originalClassName;
+            }
             // Replace the call to the method by the call to executeTask
-            String executeTask =
-                replaceTaskMethodCall(mc.getMethodName(), mc.getClassName(), declaredMethod, calledMethod);
+            String executeTask = replaceTaskMethodCall(mc.getMethodName(), taskClassName, declaredMethod, calledMethod);
             if (DEBUG) {
                 LOGGER.debug("Replacing task method call by " + executeTask);
             }
@@ -404,7 +415,6 @@ public class ITAppEditor extends ExprEditor {
         StringBuilder executeTask = new StringBuilder();
         executeTask.append(this.itApiVar).append(EXECUTE_TASK);
         executeTask.append(this.itAppIdVar).append(',');
-        executeTask.append("null").append(','); // TaskMonitor set to null
         // Common values
         boolean isPrioritary = Boolean.parseBoolean(Constants.IS_NOT_PRIORITARY_TASK);
         OnFailure onFailure = OnFailure.RETRY;

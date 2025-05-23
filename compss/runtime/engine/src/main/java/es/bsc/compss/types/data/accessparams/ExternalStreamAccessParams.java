@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import es.bsc.compss.comm.Comm;
 import es.bsc.compss.exceptions.ExternalPropertyException;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataInstanceId;
-import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.info.DataVersion;
 import es.bsc.compss.types.data.location.DataLocation;
 import es.bsc.compss.types.data.params.ExternalStreamData;
 import es.bsc.compss.util.ExternalStreamHandler;
@@ -53,18 +53,18 @@ public class ExternalStreamAccessParams extends StreamAccessParams<DataLocation,
     }
 
     private ExternalStreamAccessParams(Application app, Direction dir, DataLocation location) {
-        super(new ExternalStreamData(app, location.hashCode()), dir, location);
+        super(app, new ExternalStreamData(location.hashCode()), dir, location);
     }
 
     @Override
-    public void registeredAsFirstVersionForData(DataInfo dInfo) {
-        DataInstanceId lastDID = dInfo.getCurrentDataVersion().getDataInstanceId();
+    protected void registerValueForVersion(DataVersion dv) {
+        EngineDataInstanceId lastDID = dv.getDataInstanceId();
         String renaming = lastDID.getRenaming();
         Comm.registerLocation(renaming, this.getValue());
     }
 
     @Override
-    public void externalRegister() {
+    protected void externalRegister() {
         DataLocation location = this.getValue();
         // Inform the StreamClient
         if (mode != AccessMode.R) {

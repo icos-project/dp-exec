@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,29 +17,30 @@
 package es.bsc.compss.types.request.ap;
 
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
-import es.bsc.compss.types.data.DataInstanceId;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.access.MainAccess;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
 import es.bsc.compss.types.data.accessparams.AccessParams;
+import es.bsc.compss.types.data.info.DataInfo;
 import es.bsc.compss.types.request.exceptions.ShutdownException;
 import es.bsc.compss.types.tracing.TraceEvent;
 
 
-public class FinishDataAccessRequest extends APRequest {
+public class FinishDataAccessRequest implements APRequest {
 
-    private final AccessParams access;
-    private final DataInstanceId generatedData;
+    private final MainAccess access;
+    private final EngineDataInstanceId generatedData;
 
 
     /**
      * Creates a new finish FileAccess request.
      * 
-     * @param ap Associated AccessParams.
+     * @param ma Associated AccessParams.
      * @param generatedData Associated AccessParams.
      */
-    public FinishDataAccessRequest(AccessParams ap, DataInstanceId generatedData) {
-        this.access = ap;
+    public FinishDataAccessRequest(MainAccess ma, EngineDataInstanceId generatedData) {
+        this.access = ma;
         this.generatedData = generatedData;
     }
 
@@ -49,9 +50,8 @@ public class FinishDataAccessRequest extends APRequest {
     }
 
     @Override
-    public void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td)
-        throws ShutdownException {
-        dip.finishDataAccess(access, generatedData);
+    public void process(AccessProcessor ap, TaskDispatcher td) throws ShutdownException {
+        access.finish(generatedData);
     }
 
 }

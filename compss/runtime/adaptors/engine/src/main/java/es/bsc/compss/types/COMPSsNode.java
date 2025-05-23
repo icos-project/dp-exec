@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -221,13 +221,18 @@ public abstract class COMPSsNode implements Comparable<COMPSsNode> {
      * @return Complete URI of the given data inside the current resource.
      */
     public DataLocation getTargetLocation(Resource resource, DataType type, String name) {
-
+        LOGGER
+            .debug("Getting target location of " + name + " with type " + type + " in resource " + resource.getName());
         SimpleURI workingPath = this.getCompletePath(type, name);
         DataLocation target = null;
-        try {
-            target = DataLocation.createLocation(resource, workingPath);
-        } catch (Exception e) {
-            ErrorManager.error(DataLocation.ERROR_INVALID_LOCATION + " " + workingPath.toString(), e);
+        if (workingPath == null) {
+            ErrorManager.error(DataLocation.ERROR_INVALID_LOCATION + " URI is null");
+        } else {
+            try {
+                target = DataLocation.createLocation(resource, workingPath);
+            } catch (Exception e) {
+                ErrorManager.error(DataLocation.ERROR_INVALID_LOCATION + " " + workingPath, e);
+            }
         }
         return target;
     }

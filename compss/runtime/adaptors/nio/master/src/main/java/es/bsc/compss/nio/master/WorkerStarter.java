@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public class WorkerStarter {
     private static final long MAX_WAIT_FOR_SSH =
         Long.parseLong(System.getenv().getOrDefault(COMPSsConstants.COMPSS_SSH_TIMEOUT, "160000"));
     private static final long MAX_WAIT_FOR_INIT =
-        Long.parseLong(System.getenv().getOrDefault(COMPSsConstants.COMPSS_WORKER_INIT_TIMEOUT, "30000"));
+        Long.parseLong(System.getenv().getOrDefault(COMPSsConstants.COMPSS_WORKER_INIT_TIMEOUT, "90000"));
     private static final String ERROR_SHUTTING_DOWN_RETRY = "ERROR: Cannot shutdown failed worker PID process";
 
     // Starting workers
@@ -415,6 +415,7 @@ public class WorkerStarter {
                 // Regular clean up
                 String sandboxWorkingDir = this.nw.getWorkingDir();
                 String[] command = getCleanWorkerWorkingDir(sandboxWorkingDir);
+                LOGGER.info("getCleanWorkerWorkingDir generated this: " + command);
                 if (command != null) {
                     executeCommand(this.nw.getUser(), this.nw.getName(), command);
                 }

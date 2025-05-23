@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -37,9 +37,11 @@ from pycompss.util.arguments import check_arguments
 from pycompss.util.exceptions import PyCOMPSsException
 from pycompss.util.typing_helper import typing
 
-# Used only for typing
-from pycompss.runtime.task.definitions.core_element import CE  # noqa: F401
-
+# Used only for typing - disabled formatting due to multiline.
+# fmt: off
+from pycompss.runtime.\
+    task.definitions.core_element import CE  # pylint: disable=unused-import
+# fmt: on
 
 if __debug__:
     import logging

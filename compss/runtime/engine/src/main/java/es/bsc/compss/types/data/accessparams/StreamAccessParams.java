@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package es.bsc.compss.types.data.accessparams;
 import es.bsc.compss.comm.Comm;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataInstanceId;
-import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.info.DataVersion;
 import es.bsc.compss.types.data.params.StreamData;
 import es.bsc.distrostreamlib.api.DistroStream;
 import es.bsc.distrostreamlib.client.DistroStreamClient;
@@ -46,22 +46,22 @@ public class StreamAccessParams<T extends Object, D extends StreamData> extends 
      */
     public static final <T extends Object> StreamAccessParams<T, StreamData> constructStreamAP(Application app,
         Direction dir, T value, int code) {
-        return new StreamAccessParams(new StreamData(app, code), dir, value);
+        return new StreamAccessParams(app, new StreamData(code), dir, value);
     }
 
-    protected StreamAccessParams(D data, Direction dir, T value) {
-        super(data, dir, value);
+    protected StreamAccessParams(Application app, D data, Direction dir, T value) {
+        super(app, data, dir, value);
     }
 
     @Override
-    public void registeredAsFirstVersionForData(DataInfo dInfo) {
-        DataInstanceId lastDID = dInfo.getCurrentDataVersion().getDataInstanceId();
+    protected void registerValueForVersion(DataVersion dv) {
+        EngineDataInstanceId lastDID = dv.getDataInstanceId();
         String renaming = lastDID.getRenaming();
         Comm.registerValue(renaming, this.getValue());
     }
 
     @Override
-    public void externalRegister() {
+    protected void externalRegister() {
         // Inform the StreamClient
         if (mode != AccessMode.R) {
             DistroStream<?> ds = (DistroStream<?>) this.getValue();

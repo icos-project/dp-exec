@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,20 +34,18 @@ public class ExecType implements Externalizable {
     private String binary;
     private String params;
     private boolean failByExitValue;
-    private ExecutionOrder order;
 
 
     /**
      * Closes any stream parameter of the task.
      *
-     * @param order to indicate if it is a prolog or an epilog.
      * @param binary executable binary
      * @param params binary arguments
+     * @param failByExitValue exit value indicates whether the execution fails or not
      */
-    public ExecType(ExecutionOrder order, String binary, String params, boolean failByExitValue) {
+    public ExecType(String binary, String params, boolean failByExitValue) {
         this.binary = binary;
         this.params = params;
-        this.order = order;
         this.failByExitValue = failByExitValue;
     }
 
@@ -70,10 +68,6 @@ public class ExecType implements Externalizable {
         this.params = params;
     }
 
-    public ExecutionOrder getOrder() {
-        return order;
-    }
-
     public boolean isFailByExitValue() {
         return failByExitValue;
     }
@@ -88,7 +82,6 @@ public class ExecType implements Externalizable {
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
-        out.writeObject(this.order);
         out.writeObject(this.binary);
         out.writeObject(this.params);
         out.writeBoolean(this.failByExitValue);
@@ -96,9 +89,14 @@ public class ExecType implements Externalizable {
 
     @Override
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        this.order = (ExecutionOrder) in.readObject();
         this.binary = (String) in.readObject();
         this.params = (String) in.readObject();
         this.failByExitValue = in.readBoolean();
+    }
+
+    @Override
+    public String toString() {
+        return "{\"binary\":\"" + this.binary + "\",\"params\":\"" + this.params + "\",\"fail_by_exit\":"
+            + this.failByExitValue + "}";
     }
 }

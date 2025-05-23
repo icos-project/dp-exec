@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -123,15 +123,13 @@ public class CoreManager {
      * @return Core Element of the registered definition.
      */
     public static CoreElement registerNewCoreElement(CoreElementDefinition ced) {
-        StringBuilder logString = new StringBuilder("Registering New CoreElement\n");
         String ceSignature = ced.getCeSignature();
-
         // Check that the signature is valid
         if (ceSignature == null || ceSignature.isEmpty()) {
             LOGGER.warn(ERROR_INVALID_SIGNATURE + (ceSignature));
             return null;
         }
-        logString.append("ceSignature = ").append(ceSignature).append("\n");
+        LOGGER.debug("Registering New CoreElement " + ced);
 
         // Check that the signature does not exist
         CoreElement coreElement = SIGNATURE_TO_CORE.get(ceSignature);
@@ -141,8 +139,6 @@ public class CoreManager {
         }
         for (ImplementationDescription<?, ?> implDef : ced.getImplementations()) {
             String implSignature = implDef.getSignature();
-            logString.append("implSignature = ").append(implDef.getSignature()).append("\n");
-            logString.append("implConstraints = ").append(implDef.getConstraints()).append("\n");
             if (implSignature != null && !implSignature.isEmpty()) {
                 boolean alreadyExisting = coreElement.addImplementation(implDef);
                 if (!alreadyExisting) {
@@ -150,7 +146,7 @@ public class CoreManager {
                 }
             }
         }
-        LOGGER.debug(logString);
+        LOGGER.debug("Registered CoreElement " + coreElement.getCoreId());
         return coreElement;
     }
 
@@ -335,6 +331,7 @@ public class CoreManager {
 
         for (CoreElement ce : CORE_ELEMENTS) {
             for (Implementation impl : ce.getImplementations()) {
+                LOGGER.debug("******* Executing Can Host ");
                 if (rd.canHost(impl)) {
                     // Add core to executable list
                     executableList.add(ce);

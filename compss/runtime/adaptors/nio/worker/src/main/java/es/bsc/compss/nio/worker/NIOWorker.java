@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -815,7 +815,7 @@ public class NIOWorker extends NIOAgent implements InvocationContext, DataProvid
 
     /**
      * Freezes the files on the folder and returns the paths to those frozen files.
-     * 
+     *
      * @param foldername folder path to the files
      * @return Set the paths of the files in that folder
      */
@@ -916,8 +916,8 @@ public class NIOWorker extends NIOAgent implements InvocationContext, DataProvid
         generateTracingFiles();
         Set<String> analysisFilesPaths;
 
-        // Ideally the transfer should bea single compressed file
-        // following comented code was a try at that but was not working properly
+        // Ideally the transfer should be a single compressed file
+        // following commented code was a try at that but was not working properly
 
         // try {
         // // Tries to generate a tar.gz file with the contents of the analysis folder.
@@ -926,7 +926,7 @@ public class NIOWorker extends NIOAgent implements InvocationContext, DataProvid
         // } catch (Exception e) {
         // // If it runs out of space to do the tar.gz package sends the paths to the files
         // WORKER_LOGGER
-        // .warn("Something failed while generatin tar.gz package with the contents of the analysis folder.", e);
+        // .warn("Something failed while generating tar.gz package with the contents of the analysis folder.", e);
         // analysisFilesPaths = getFilesPathFromFolder(this.getAnalysisDir());
         // }
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package es.bsc.compss.scheduler.lookahead.locality;
 
 import es.bsc.compss.components.impl.ResourceScheduler;
 import es.bsc.compss.scheduler.lookahead.LookaheadTS;
+import es.bsc.compss.scheduler.types.ActionOrchestrator;
 import es.bsc.compss.scheduler.types.AllocatableAction;
 import es.bsc.compss.scheduler.types.SchedulingInformation;
 import es.bsc.compss.scheduler.types.Score;
@@ -37,9 +38,11 @@ public class LocalityTS extends LookaheadTS {
 
     /**
      * Constructs a new FIFOScheduler instance.
+     *
+     * @param orchestrator element ordering the execution of actions
      */
-    public LocalityTS() {
-        super();
+    public LocalityTS(ActionOrchestrator orchestrator) {
+        super(orchestrator);
     }
 
     /*

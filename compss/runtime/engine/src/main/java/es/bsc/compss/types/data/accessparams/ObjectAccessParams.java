@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,12 +17,11 @@
 package es.bsc.compss.types.data.accessparams;
 
 import es.bsc.compss.comm.Comm;
-import es.bsc.compss.components.impl.DataInfoProvider;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataInstanceId;
-import es.bsc.compss.types.data.DataVersion;
+import es.bsc.compss.types.data.EngineDataInstanceId;
 import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.info.DataVersion;
 import es.bsc.compss.types.data.params.ObjectData;
 import es.bsc.compss.types.request.exceptions.ValueUnawareRuntimeException;
 
@@ -48,11 +47,11 @@ public class ObjectAccessParams<T extends Object, D extends ObjectData> extends 
      */
     public static final <T extends Object> ObjectAccessParams<T, ObjectData> constructObjectAP(Application app,
         Direction dir, T value, int code) {
-        return new ObjectAccessParams(new ObjectData(app, code), dir, value);
+        return new ObjectAccessParams(app, new ObjectData(code), dir, value);
     }
 
-    protected ObjectAccessParams(D data, Direction dir, T value) {
-        super(data, dir);
+    protected ObjectAccessParams(Application app, D data, Direction dir, T value) {
+        super(app, data, dir);
         this.value = value;
     }
 
@@ -75,8 +74,9 @@ public class ObjectAccessParams<T extends Object, D extends ObjectData> extends 
     }
 
     @Override
-    public void checkAccessValidity(DataInfoProvider dip) throws ValueUnawareRuntimeException {
-        boolean validValue = dip.isHere(this.data);
+    public void checkAccessValidity() throws ValueUnawareRuntimeException {
+        DataInfo oInfo = data.getRegisteredData(this.app);
+        boolean validValue = oInfo.getCurrentDataVersion().isValueOnMain();
         if (validValue) {
             // Main code is still performing the same modification.
             // No need to register it as a new version.
@@ -85,10 +85,9 @@ public class ObjectAccessParams<T extends Object, D extends ObjectData> extends 
     }
 
     @Override
-    public void registeredAsFirstVersionForData(DataInfo dInfo) {
-        DataVersion dv = dInfo.getCurrentDataVersion();
+    protected void registerValueForVersion(DataVersion dv) {
         if (mode != AccessMode.W) {
-            DataInstanceId lastDID = dv.getDataInstanceId();
+            EngineDataInstanceId lastDID = dv.getDataInstanceId();
             String renaming = lastDID.getRenaming();
             Comm.registerValue(renaming, value);
         } else {
@@ -97,18 +96,13 @@ public class ObjectAccessParams<T extends Object, D extends ObjectData> extends 
     }
 
     @Override
-    public boolean resultRemainOnMain() {
-        return true;
-    }
-
-    @Override
-    public void externalRegister() {
+    protected void externalRegister() {
         // Do nothing. No need to register the access anywhere.
     }
 
     @Override
     public String toString() {
-        return "[" + this.getApp() + ", " + this.mode + " ," + this.getCode() + "]";
+        return "[" + this.mode + " ," + this.getCode() + "]";
     }
 
 }

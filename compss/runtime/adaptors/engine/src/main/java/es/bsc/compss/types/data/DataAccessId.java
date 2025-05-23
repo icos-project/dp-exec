@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -38,52 +38,38 @@ public interface DataAccessId extends Serializable {
      * 
      * @return The data Id.
      */
-    public abstract int getDataId();
+    int getDataId();
 
     /**
      * Returns the data direction.
      * 
      * @return The data direction.
      */
-    public abstract Direction getDirection();
+    Direction getDirection();
 
     /**
      * Returns whether the data access will read or not.
      * 
      * @return {@code true} if the data access will read, {@code false} otherwise.
      */
-    public abstract boolean isRead();
+    boolean isRead();
 
     /**
      * Returns whether the data access will write or not.
      * 
      * @return {@code true} if the data access will write, {@code false} otherwise.
      */
-    public abstract boolean isWrite();
+    boolean isWrite();
 
     /**
      * Returns whether the source data must be preserved or not.
      * 
      * @return {@code true} if the source data must be preserved, {@code false} otherwise.
      */
-    public abstract boolean isPreserveSourceData();
-
-    /**
-     * Returns a new DataAccess where the no-longer-valid versions are replaced by valid ones.
-     * 
-     * @return new DataAccess with valid versions.
-     */
-    public abstract DataAccessId consolidateValidVersions();
+    boolean isPreserveSourceData();
 
 
-    public static interface ReadingDataAccessId extends DataAccessId {
-
-        /**
-         * Returns the data version read by the access.
-         *
-         * @return data version read
-         */
-        public DataVersion getReadDataVersion();
+    interface ReadingDataAccessId extends DataAccessId {
 
         /**
          * Returns the read data instance.
@@ -100,14 +86,7 @@ public interface DataAccessId extends Serializable {
         public int getRVersionId();
     }
 
-    public static interface WritingDataAccessId extends DataAccessId {
-
-        /**
-         * Returns the written data version.
-         *
-         * @return data version written
-         */
-        public DataVersion getWrittenDataVersion();
+    interface WritingDataAccessId extends DataAccessId {
 
         /**
          * Returns the written data instance.

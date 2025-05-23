@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,13 +16,15 @@
  */
 package es.bsc.compss.types.data.params;
 
-import es.bsc.compss.types.Application;
-
-
 public class ExternalStreamData extends StreamData {
 
-    public ExternalStreamData(Application app, int code) {
-        super(app, code);
+    /**
+     * Constructs a new DataParams for an external stream.
+     *
+     * @param code code identifying the stream
+     */
+    public ExternalStreamData(int code) {
+        super(code);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package es.bsc.compss.invokers;
 
 import es.bsc.compss.api.ApplicationRunner;
+import es.bsc.compss.api.TaskMonitor;
+import es.bsc.compss.api.impl.DoNothingApplicationMonitor;
 import es.bsc.compss.exceptions.InvokeExecutionException;
 import es.bsc.compss.execution.types.InvocationResources;
 import es.bsc.compss.executor.InvocationRunner;
@@ -47,6 +49,7 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
@@ -54,7 +57,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 
-public abstract class Invoker implements ApplicationRunner {
+public abstract class Invoker extends DoNothingApplicationMonitor {
 
     protected static final Logger LOGGER = LogManager.getLogger(Loggers.WORKER_INVOKER);
 
@@ -68,6 +71,8 @@ public abstract class Invoker implements ApplicationRunner {
     public static final String COMPSS_NUM_PROCS = "COMPSS_NUM_PROCS";
     public static final String COMPSS_NUM_THREADS = "COMPSS_NUM_THREADS";
     public static final String OMP_NUM_THREADS = "OMP_NUM_THREADS";
+    public static final String COMPSS_BINDED_GPUS = "COMPSS_BINDED_GPUS";
+    public static final String COMPSS_BINDED_CPUS = "COMPSS_BINDED_CPUS";
     public static final String IB_SUFFIX = "-ib0";
 
     protected final InvocationContext context;
@@ -362,7 +367,14 @@ public abstract class Invoker implements ApplicationRunner {
         System.setProperty(COMPSS_NUM_THREADS, String.valueOf(this.computingUnits));
         System.setProperty(COMPSS_NUM_PROCS, "1");
         System.setProperty(OMP_NUM_THREADS, String.valueOf(this.computingUnits));
-
+        if (assignedResources != null) {
+            String gpus = String.join(", ", Arrays.stream(this.assignedResources.getAssignedGPUs())
+                .mapToObj(String::valueOf).toArray(String[]::new));
+            System.setProperty(COMPSS_BINDED_GPUS, gpus);
+            String cpus = String.join(", ", Arrays.stream(this.assignedResources.getAssignedCPUs())
+                .mapToObj(String::valueOf).toArray(String[]::new));
+            System.setProperty(COMPSS_BINDED_CPUS, cpus);
+        }
         // LOG ENV VARS
         if (LOGGER.isDebugEnabled()) {
             System.out.println("[INVOKER] COMPSS_HOSTNAMES: " + this.workers);

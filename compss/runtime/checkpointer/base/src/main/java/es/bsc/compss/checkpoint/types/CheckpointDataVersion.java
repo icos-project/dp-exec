@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
  */
 package es.bsc.compss.checkpoint.types;
 
-import es.bsc.compss.checkpoint.CheckpointManagerImpl;
 import es.bsc.compss.log.Loggers;
 import es.bsc.compss.types.annotations.parameter.DataType;
-import es.bsc.compss.types.data.DataVersion;
+import es.bsc.compss.types.data.info.DataVersion;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -29,8 +28,6 @@ import org.apache.logging.log4j.Logger;
 
 
 public class CheckpointDataVersion {
-
-    private static final Logger LOGGER = LogManager.getLogger(Loggers.TA_COMP);
 
     // DataVersion needed to be saved
     private final DataVersion dataVersion;

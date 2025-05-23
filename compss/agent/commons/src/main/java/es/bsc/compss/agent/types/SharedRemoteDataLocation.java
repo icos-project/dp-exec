@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -63,8 +63,8 @@ public class SharedRemoteDataLocation implements RemoteDataLocation {
 
         @Override
         public String toString() {
-            return "MOUNTPOINT [" + " RESOURCE = [" + (this.resource == null ? "null" : this.resource.toString()) + "],"
-                + " PATH =" + this.path + "]";
+            return "{\"resource\":" + (this.resource == null ? "null" : this.resource) + "," + " \"path\":" + this.path
+                + "}";
         }
     }
 
@@ -157,13 +157,13 @@ public class SharedRemoteDataLocation implements RemoteDataLocation {
 
     @Override
     public String toString() {
-        StringBuilder desc = new StringBuilder("SHARED_LOCATION [" + " DISK = " + this.diskName + ", " + " PATH = "
-            + this.pathOnDisk + ", " + "MOUNTPOINTS = [");
+        StringBuilder desc = new StringBuilder(
+            "{\"disk\":\"" + this.diskName + "\"," + " \"path\":\"" + this.pathOnDisk + "\"," + "\"mountpoints\":[");
 
         for (Mountpoint m : this.mountpoints) {
             desc.append(m.toString() + ",");
         }
-        desc.append("]" + "]");
+        desc.append("]" + "}");
         return desc.toString();
     }
 }

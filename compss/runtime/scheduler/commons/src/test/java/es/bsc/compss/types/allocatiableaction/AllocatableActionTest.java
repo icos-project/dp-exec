@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -92,12 +92,9 @@ public class AllocatableActionTest {
         description = new MethodResourceDescription();
         description.addProcessor(p);
 
-        // Task Scheduler
-        ts = new TaskScheduler();
-
         // Task Dispatcher
-        fao = new FakeActionOrchestrator(ts);
-        ts.setOrchestrator(fao);
+        fao = new FakeActionOrchestrator();
+        // Task Scheduler
 
         // Resource Scheduler
         rs = new FakeResourceScheduler(new FakeWorker(description, maxSlots), null, null);
@@ -105,7 +102,7 @@ public class AllocatableActionTest {
 
     @AfterClass
     public static void tearDownClass() {
-        ts.shutdown();
+        fao.shutdown();
     }
 
     @Before

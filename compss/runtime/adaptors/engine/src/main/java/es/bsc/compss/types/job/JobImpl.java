@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -499,7 +499,7 @@ public abstract class JobImpl<T extends COMPSsWorker> implements Job<T> {
                 }
             }
             DataAccessId access = param.getDataAccessId();
-            if (access.isRead() && access.isWrite()) {
+            if (access != null && access.isRead() && access.isWrite()) {
                 String tgtName = "tmp" + ((WritingDataAccessId) access).getWrittenDataInstance().getRenaming();
                 Comm.removeDataKeepingValue(tgtName);
             }
@@ -524,8 +524,14 @@ public abstract class JobImpl<T extends COMPSsWorker> implements Job<T> {
     @Override
     public void cancel() throws Exception {
         this.cancelling = true;
-        this.cancelJob();
-        registerAllJobOutputsAsExpected();
+        try {
+            this.cancelJob();
+            registerAllJobOutputsAsExpected();
+        } catch (Exception e) {
+            LOGGER.error("ERROR: Cancelling job. Continuing the cancellation. Results will be ignored.", e);
+            registerAllJobOutputsAsExpected();
+            cancelled();
+        }
     }
 
     /**

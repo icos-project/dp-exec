@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -83,8 +83,17 @@ public class CommResource extends Resource<Void, ResourcesExternalAdaptorPropert
     }
 
     @Override
+    protected void dumpContent(StringBuilder sb) {
+        super.dumpContent(sb);
+        sb.append(",\"port\":").append(port);
+    }
+
+    @Override
     public String toString() {
-        return super.toString() + ", PORT = " + port;
+        StringBuilder sb = new StringBuilder("{");
+        this.dumpContent(sb);
+        sb.append("}");
+        return sb.toString();
     }
 
 }

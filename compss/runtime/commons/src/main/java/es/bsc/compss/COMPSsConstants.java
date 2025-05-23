@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@ public class COMPSsConstants {
     public static final String MASTER_NAME = "compss.masterName";
     public static final String MASTER_PORT = "compss.masterPort";
     public static final String DEPLOYMENT_ID = "compss.uuid";
+    public static final String EXEC_LABEL = "compss.exec.label";
     public static final String SHUTDOWN_IN_NODE_FAILURE = "compss.shutdown_in_node_failure";
 
     public static final String LOG_DIR = "compss.log.dir";
@@ -202,6 +203,8 @@ public class COMPSsConstants {
     public static final String MASTER_CONTAINER_OPTIONS = "MASTER_CONTAINER_OPTIONS";
     public static final String NESTED_CONTAINER_OPTIONS = "NESTED_CONTAINER_OPTIONS";
     public static final String MPI_RUNNER_SCRIPT = "MPI_RUNNER_SCRIPT";
+    public static final String COMPSS_THROTTLE_MAX_TASKS = "COMPSS_THROTTLE_MAX_TASKS";
+    public static final String COMPSS_THROTTLE_INTERVAL = "COMPSS_THROTTLE_INTERVAL";
 
 
     /**

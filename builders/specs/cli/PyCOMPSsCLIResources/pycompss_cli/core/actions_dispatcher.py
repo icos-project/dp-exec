@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #  limitations under the License.
 #
 from pycompss_cli.core import utils
+from pycompss_cli.core.cmd_helpers import command_runner
 from copy import deepcopy
 import os
 from pathlib import Path
@@ -26,7 +27,11 @@ class ActionsDispatcher(object):
         self.home_path = str(Path.home())
 
     def run_action(self, arguments):
-        self.__ensure_default_env()
+        self.__ensure_default_env
+
+        if arguments.version:
+            exit_code = command_runner(["runcompss", "-v"], silent=True)
+            exit(exit_code)
 
         if 'env' in arguments and arguments.env:
             env_type = arguments.env
@@ -42,7 +47,7 @@ class ActionsDispatcher(object):
                     self.__delete_envs(arguments.env_id, arguments)
 
             env_id = arguments.env_id if arguments.env_id else None
-                
+
             env_conf = utils.get_current_env_conf(env_id=env_id)
             env_type = env_conf['env']
 
@@ -96,7 +101,7 @@ class ActionsDispatcher(object):
         else:
             raise NotImplementedError(f"Environment `{env_type}` not implemented")
 
-    
+
     def __ensure_default_env(self):
         default_env = self.home_path + '/.COMPSs/envs/default'
         if not os.path.isdir(default_env):

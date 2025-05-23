@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@ package es.bsc.compss.types.data.info;
 
 import es.bsc.compss.comm.Comm;
 import es.bsc.compss.log.Loggers;
-import es.bsc.compss.types.data.DataInstanceId;
-import es.bsc.compss.types.data.DataVersion;
+import es.bsc.compss.types.data.EngineDataInstanceId;
 import es.bsc.compss.types.data.LogicalData;
 import es.bsc.compss.types.data.listener.SafeCopyListener;
 import es.bsc.compss.types.data.location.DataLocation;
 import es.bsc.compss.types.data.location.LocationType;
 import es.bsc.compss.types.data.operation.copy.Copy;
+import es.bsc.compss.types.data.params.DataOwner;
 import es.bsc.compss.types.data.params.FileData;
 import es.bsc.compss.types.request.exceptions.NonExistingValueException;
 import es.bsc.compss.types.uri.MultiURI;
@@ -40,7 +40,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 
-public class FileInfo extends DataInfo<FileData> {
+public class FileInfo extends StandardDataInfo<FileData> {
 
     private static final Logger LOGGER = LogManager.getLogger(Loggers.COMM);
 
@@ -49,9 +49,12 @@ public class FileInfo extends DataInfo<FileData> {
      * Creates a new FileInfo instance for a given file.
      * 
      * @param file description of the file related to the info
+     * @param owner owner of the fileInfo being created
      */
-    public FileInfo(FileData file) {
-        super(file);
+    public FileInfo(FileData file, DataOwner owner) {
+        super(file, owner);
+        String locKey = file.getLocationKey();
+        owner.registerFileData(locKey, this);
     }
 
     /**
@@ -154,10 +157,10 @@ public class FileInfo extends DataInfo<FileData> {
         }
 
         public void completed() {
-            DataInstanceId daId = version.getDataInstanceId();
+            EngineDataInstanceId daId = version.getDataInstanceId();
             LogicalData ld = daId.getData();
             // The number of readers can only be higher than 0 in local disks. The overhead of moving should be low.
-            if (version.getNumberOfReaders() > 0) {
+            if (version.hasPendingLectures()) {
                 String rename = daId.getRenaming();
                 moveToWorkingDir(loc, uri, rename);
             } else {

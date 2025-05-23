@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -40,12 +40,12 @@ public class DirectoryAccessParams extends FileAccessParams<DirectoryData> {
      * @return new FileAccessParams instance
      */
     public static final DirectoryAccessParams constructDAP(Application app, Direction dir, DataLocation loc) {
-        DirectoryData dd = new DirectoryData(app, loc);
-        return new DirectoryAccessParams(dd, dir);
+        DirectoryData dd = new DirectoryData(loc);
+        return new DirectoryAccessParams(app, dd, dir);
     }
 
-    private DirectoryAccessParams(DirectoryData data, Direction dir) {
-        super(data, dir);
+    private DirectoryAccessParams(Application app, DirectoryData data, Direction dir) {
+        super(app, data, dir);
     }
 
 }

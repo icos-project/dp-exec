@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,19 +16,23 @@
  */
 package es.bsc.compss.types.data.info;
 
+import es.bsc.compss.types.data.params.DataOwner;
 import es.bsc.compss.types.data.params.ObjectData;
 import java.util.concurrent.Semaphore;
 
 
-public class ObjectInfo extends DataInfo<ObjectData> {
+public class ObjectInfo extends StandardDataInfo<ObjectData> {
 
     /**
      * Creates a new ObjectInfo instance for the given object.
      *
      * @param object description of the object related to the info
+     * @param owner owner of the fileInfo being created
      */
-    public ObjectInfo(ObjectData object) {
-        super(object);
+    public ObjectInfo(ObjectData object, DataOwner owner) {
+        super(object, owner);
+        int code = object.getCode();
+        owner.registerObjectData(code, this);
     }
 
     /**

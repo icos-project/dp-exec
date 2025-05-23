@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ public class SSHCommand {
 
         SSHChannel channel = sshHost.openChannel("exec", "cancelJob " + job.getCompositeID());
 
-        String executionCommand = killCommand + " " + pathResponse;
+        String executionCommand = "sh " + killCommand + " " + pathResponse;
         channel.setCommand(executionCommand);
         OutputStream outputStream = new FileOutputStream(outFile, true);
         OutputStream errorStream = new FileOutputStream(errFile, true);

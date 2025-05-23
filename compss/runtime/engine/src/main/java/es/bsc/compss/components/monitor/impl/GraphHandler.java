@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,13 +19,17 @@ package es.bsc.compss.components.monitor.impl;
 import es.bsc.compss.types.AbstractTask;
 import es.bsc.compss.types.CommutativeGroupTask;
 import es.bsc.compss.types.Task;
-import es.bsc.compss.types.accesses.DataAccessesInfo;
-import es.bsc.compss.types.data.DataAccessId;
-import es.bsc.compss.types.data.DataInstanceId;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
+import es.bsc.compss.types.data.info.CollectionInfo;
+import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.info.FileInfo;
 import es.bsc.compss.types.request.ap.BarrierGroupRequest;
 
 import java.io.BufferedWriter;
+import java.util.Collection;
 import java.util.Map;
+import java.util.TreeMap;
 
 
 /**
@@ -37,14 +41,14 @@ public interface GraphHandler {
 
     void closeTaskGroup();
 
-    /**
-     * Closes a commutative group in the graph.
-     *
-     * @param group group to close in the graph.
-     */
-    public void closeCommutativeTasksGroup(CommutativeGroupTask group);
-
     void startTaskAnalysis(Task currentTask);
+
+    /**
+     * Creates a commutative group in the graph.
+     *
+     * @param group group to create in the graph.
+     */
+    public void createCommutativeGroup(CommutativeGroupTask group);
 
     /**
      * Adds a task in a commutative Group.
@@ -53,6 +57,13 @@ public interface GraphHandler {
      * @param group group to whom the task belongs.
      */
     public void taskBelongsToCommutativeGroup(Task task, CommutativeGroupTask group);
+
+    /**
+     * Closes a commutative group in the graph.
+     *
+     * @param group group to close in the graph.
+     */
+    public void closeCommutativeGroup(CommutativeGroupTask group);
 
     void startGroupingEdges();
 
@@ -65,7 +76,7 @@ public interface GraphHandler {
      * @param daId DataAccess causing the dependency
      * @param producer Producer task
      */
-    public void addStandandDependency(Task consumer, DataAccessId daId, AbstractTask producer);
+    public void addStandandDependency(Task consumer, EngineDataAccessId daId, AbstractTask producer);
 
     /**
      * Adds the stream node and edge to the graph.
@@ -86,11 +97,11 @@ public interface GraphHandler {
      * @param edgeType Type of edge for the DOT representation.
      * @param accessedData Data being accessed
      */
-    public void mainAccessToData(AbstractTask task, EdgeType edgeType, DataInstanceId accessedData);
+    public void mainAccessToData(AbstractTask task, EdgeType edgeType, EngineDataInstanceId accessedData);
 
     void groupBarrier(BarrierGroupRequest barrier);
 
-    void barrier(Map<Integer, DataAccessesInfo> accessesInfo);
+    void barrier(Map<String, FileInfo> files, Map<Integer, DataInfo> objects, Map<String, CollectionInfo> collections);
 
     void endApp();
 
@@ -99,4 +110,5 @@ public interface GraphHandler {
     void closeCurrentGraph();
 
     void removeCurrentGraph();
+
 }

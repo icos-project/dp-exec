@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ public class ExecutionSandbox {
         if (version1array.length < 2 || version2array.length < 2) {
             return DataComparison.ERROR;
         }
-        if (version1array[1].compareTo(version2array[1]) == 0) {
+        if (version1array[0].compareTo(version2array[0]) == 0) {
             // same data
             int version1int;
             int version2int;

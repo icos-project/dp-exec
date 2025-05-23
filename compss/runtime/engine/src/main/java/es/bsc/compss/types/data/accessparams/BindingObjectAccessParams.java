@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,9 +20,8 @@ import es.bsc.compss.comm.Comm;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.BindingObject;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataInstanceId;
-import es.bsc.compss.types.data.DataVersion;
-import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.info.DataVersion;
 import es.bsc.compss.types.data.params.BindingObjectData;
 
 
@@ -49,7 +48,7 @@ public class BindingObjectAccessParams extends ObjectAccessParams<BindingObject,
     }
 
     private BindingObjectAccessParams(Application app, Direction dir, BindingObject bo, int hashCode) {
-        super(new BindingObjectData(app, hashCode), dir, bo);
+        super(app, new BindingObjectData(hashCode), dir, bo);
     }
 
     /**
@@ -62,20 +61,14 @@ public class BindingObjectAccessParams extends ObjectAccessParams<BindingObject,
     }
 
     @Override
-    public void registeredAsFirstVersionForData(DataInfo dInfo) {
-        DataVersion dv = dInfo.getCurrentDataVersion();
+    public void registerValueForVersion(DataVersion dv) {
         if (mode != AccessMode.W) {
-            DataInstanceId lastDID = dv.getDataInstanceId();
+            EngineDataInstanceId lastDID = dv.getDataInstanceId();
             String renaming = lastDID.getRenaming();
             Comm.registerBindingObject(renaming, getBindingObject());
         } else {
             dv.invalidate();
         }
-    }
-
-    @Override
-    public boolean resultRemainOnMain() {
-        return false;
     }
 
 }

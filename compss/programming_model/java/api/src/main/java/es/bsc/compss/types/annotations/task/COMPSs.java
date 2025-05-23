@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -53,6 +53,13 @@ public @interface COMPSs {
      * @return the COMPSs application main class.
      */
     String appName() default Constants.UNASSIGNED;
+
+    /**
+     * Returns the COMPSs application main class.
+     * 
+     * @return the COMPSs application main class.
+     */
+    String appArgs() default Constants.UNASSIGNED;
 
     /*
      * COMPSs PROPERTIES

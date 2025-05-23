@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 package es.bsc.compss.types.request.ap;
 
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.Barrier;
@@ -28,7 +26,7 @@ import es.bsc.compss.worker.COMPSsException;
 import java.util.concurrent.Semaphore;
 
 
-public class BarrierRequest extends APRequest implements Barrier {
+public class BarrierRequest implements APRequest, Barrier {
 
     private final String barrierName;
     private final Application app;
@@ -89,13 +87,13 @@ public class BarrierRequest extends APRequest implements Barrier {
     }
 
     @Override
-    public final void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td) {
-        handleBarrier(ta);
+    public final void process(AccessProcessor ap, TaskDispatcher td) {
+        handleBarrier();
         sem.release();
     }
 
-    public void handleBarrier(TaskAnalyser ta) {
-        ta.barrier(this);
+    public void handleBarrier() {
+        app.reachesBarrier(this);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ public class SSHFileSystem {
         }
         if (dst.isLocal()) {
             // get file from remote
-            LOGGER.info(DBG_PREFIX + "Sending data with sftp from remote: " + src + " to local: " + dst.getPath());
+            LOGGER.info(DBG_PREFIX + "Receiving data with sftp from remote: " + src + " to local: " + dst.getPath());
 
             return getFile(copy, src, dst);
         }

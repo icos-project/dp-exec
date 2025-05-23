@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ SUPPORTED_ARGUMENTS = {
     LABELS.fail_by_exit_value,
 }
 DEPRECATED_ARGUMENTS = {
-    LABELS.computing_nodes,
+    LEGACY_LABELS.computing_units,
     LEGACY_LABELS.computing_nodes,
     LEGACY_LABELS.working_dir,
 }

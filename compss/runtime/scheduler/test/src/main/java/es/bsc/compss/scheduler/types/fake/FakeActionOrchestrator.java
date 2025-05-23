@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,13 +27,16 @@ import java.util.concurrent.Semaphore;
 
 public class FakeActionOrchestrator implements ActionOrchestrator {
 
-    private final TaskScheduler ts;
+    private TaskScheduler ts;
     private final Semaphore startedWorkers = new Semaphore(0);
     private final Semaphore startingWorker = new Semaphore(0);
 
 
-    public FakeActionOrchestrator(TaskScheduler ts) {
+    public FakeActionOrchestrator() {
         super();
+    }
+
+    public void setTaskScheduler(TaskScheduler ts) {
         this.ts = ts;
     }
 

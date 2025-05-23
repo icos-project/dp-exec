@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@ package es.bsc.compss.types.data.accessparams;
 import es.bsc.compss.comm.Comm;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.annotations.parameter.Direction;
-import es.bsc.compss.types.data.DataInstanceId;
-import es.bsc.compss.types.data.DataVersion;
-import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.info.DataVersion;
 import es.bsc.compss.types.data.params.ExternalPSCObjectData;
 
 
@@ -48,7 +47,7 @@ public class ExternalPSCObjectAccessParams extends ObjectAccessParams<String, Ex
     }
 
     private ExternalPSCObjectAccessParams(Application app, Direction dir, String pscoId, int hashCode) {
-        super(new ExternalPSCObjectData(app, hashCode), dir, pscoId);
+        super(app, new ExternalPSCObjectData(hashCode), dir, pscoId);
     }
 
     /**
@@ -61,20 +60,14 @@ public class ExternalPSCObjectAccessParams extends ObjectAccessParams<String, Ex
     }
 
     @Override
-    public void registeredAsFirstVersionForData(DataInfo dInfo) {
-        DataVersion dv = dInfo.getCurrentDataVersion();
+    protected void registerValueForVersion(DataVersion dv) {
         if (mode != AccessMode.W) {
-            DataInstanceId lastDID = dv.getDataInstanceId();
+            EngineDataInstanceId lastDID = dv.getDataInstanceId();
             String renaming = lastDID.getRenaming();
             Comm.registerExternalPSCO(renaming, this.getPSCOId());
         } else {
             dv.invalidate();
         }
-    }
-
-    @Override
-    public boolean resultRemainOnMain() {
-        return false;
     }
 
 }

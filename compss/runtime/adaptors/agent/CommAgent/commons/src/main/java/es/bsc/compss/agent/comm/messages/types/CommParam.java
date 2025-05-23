@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -122,10 +122,22 @@ public class CommParam extends NIOParam implements ApplicationParameter, Externa
         remoteData = (RemoteDataInformation) oi.readObject();
     }
 
+    /**
+     * Dumps the internal information into the given StringBuilder.
+     *
+     * @param sb StringBuilder where to dump the internal information.
+     */
+    protected void dumpInternalInfo(StringBuilder sb) {
+        sb.append("\"remoteData\":" + (remoteData == null ? "null" : remoteData) + ",");
+        super.dumpInternalInfo(sb);
+    }
+
     @Override
     public String toString() {
-        return "CommParam: [ remoteData: " + (remoteData == null ? "null" : remoteData.toString()) + "," + "NIOParam: ["
-            + super.toString() + "] ]";
+        StringBuilder sb = new StringBuilder("{");
+        dumpInternalInfo(sb);
+        sb.append("}");
+        return sb.toString();
     }
 
 }

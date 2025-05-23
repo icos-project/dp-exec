@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -328,10 +328,7 @@ public class IDLParser {
         ImplementationDescription<?, ?> implDef = null;
         try {
             implDef = ImplementationDescription.defineImplementation(MethodType.METHOD.toString(),
-                implementationSignature, false, currConstraints, null, null, new String[] { null,
-                    null,
-                    null },
-                declaringClass, methodName);
+                implementationSignature, false, currConstraints, null, null, null, declaringClass, methodName);
         } catch (Exception e) {
             ErrorManager.error(e.getMessage());
         }

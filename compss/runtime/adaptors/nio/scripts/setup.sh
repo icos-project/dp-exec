@@ -34,6 +34,7 @@
     if [ -z "${SCRIPT_DIR}" ]; then
         if [ -z "$COMPSS_HOME" ]; then
            SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+           COMPSS_HOME="${SCRIPT_DIR}/../../../../.."
         else
            SCRIPT_DIR="${COMPSS_HOME}/Runtime/scripts/system/adaptors/nio"
         fi
@@ -219,15 +220,21 @@
           baseConfigFile="${extraeFile}"
       fi
 
+      if [ -z "$EXTRAE_HOME" ]; then
+        export EXTRAE_HOME=${COMPSS_HOME}/Dependencies/extrae/
+      fi
+
       tracing_output_dir="${workingDir}"
       mkdir -p "${tracing_output_dir}"
-      extraeFile="${workingDir}/extrae.xml"
-      escaped_tracing_output_dir=$(echo "${tracing_output_dir}" | sed 's_/_\\/_g')
-      sed "s/{{TRACE_OUTPUT_DIR}}/${escaped_tracing_output_dir}/g" "${baseConfigFile}" > "${extraeFile}"
 
-      if [ -z "$EXTRAE_HOME" ]; then
-        export EXTRAE_HOME=${SCRIPT_DIR}/../../../../../Dependencies/extrae/
-      fi
+      extraeFile="${workingDir}/extrae.xml"
+      cp "${baseConfigFile}" "${extraeFile}"
+
+      escaped_extrae_home=$(echo "${EXTRAE_HOME}" | sed 's_/_\\/_g')
+      sed -i "s/{{EXTRAE_HOME}}/${escaped_extrae_home}/g" "${extraeFile}"
+
+      escaped_tracing_output_dir=$(echo "${tracing_output_dir}" | sed 's_/_\\/_g')
+      sed -i "s/{{TRACE_OUTPUT_DIR}}/${escaped_tracing_output_dir}/g" "${extraeFile}"
 
       export EXTRAE_LIB=${EXTRAE_HOME}/lib
       export LD_LIBRARY_PATH=${EXTRAE_LIB}:${LD_LIBRARY_PATH}
@@ -249,22 +256,22 @@
     # Set lib path
     if [ "${envScriptPath}" != "null" ]; then
         if [ "$debug" == "true" ]; then
-		echo "[persistent_worker.sh] Loading environment scripts"
+            echo "[persistent_worker.sh] Loading environment scripts"
         fi
         scripts=$(echo "${envScriptPath}" | tr ":" " ")
         echo "${scripts}"
         for script in ${scripts}
         do
-	   if [ "$debug" == "true" ]; then
-           	echo "[persistent_worker.sh] Loading ${script}"
-	   fi
-           source "$script"
+            if [ "$debug" == "true" ]; then
+                echo "[persistent_worker.sh] Loading ${script}"
+            fi
+            source "$script"
         done
     fi
 
     # Create sandbox
     if [ ! -d "$workingDir" ]; then
-  	mkdir -p "$workingDir"
+        mkdir -p "$workingDir"
     fi
     export COMPSS_WORKING_DIR=$workingDir
     mkdir -p "$workingDir"/log
@@ -307,7 +314,7 @@
 
     # Set the classpath
     if [ "$cp" == "null" ]; then
-  	cp=""
+      cp=""
     fi
 
     # Coredump
@@ -317,7 +324,7 @@
 
     # Export environment
     export CLASSPATH=$cpNW:$CLASSPATH
-    export PYTHONPATH=$pythonpath:$PYTHONPATH
+    export PYTHONPATH=$pythonpath:$PYTHONPATH:${COMPSS_HOME}/Dependencies/threadpoolctl/
     export LD_LIBRARY_PATH=$libPathNW:${SCRIPT_DIR}/../../../../../Bindings/bindings-common/lib:${SCRIPT_DIR}/../../../../../Bindings/c/lib:$LD_LIBRARY_PATH
   }
 
@@ -326,7 +333,7 @@
     local JAVA=java
     worker_jar=${SCRIPT_DIR}/../../../../adaptors/nio/worker/compss-adaptors-nio-worker.jar
     local main_worker_class=es.bsc.compss.nio.worker.NIOWorker
-    perf_jvm_flags="-XX:+PerfDisableSharedMem -XX:-UsePerfData -XX:+UseG1GC"
+    perf_jvm_flags="-XX:+PerfDisableSharedMem -XX:-UsePerfData -XX:+UseG1GC -XX:ParallelGCThreads=1"  # -XX:+UseSerialGC"
     compss_jvm_flags="-Dlog4j.configurationFile=${installDir}/Runtime/configuration/log/${itlog4j_file} \
     -Dcompss.streaming=${streaming} \
     -Dcompss.python.interpreter=${pythonInterpreter} \
@@ -343,12 +350,12 @@
     fi
 
     if [ "$lang" = "c" ] && [ "${persistentBinding}" = "true" ]; then
-    	generate_jvm_opts_file
-        # shellcheck disable=SC2034
-    	cmd="${appDir}/worker/nio_worker_c"
+      generate_jvm_opts_file
+      # shellcheck disable=SC2034
+      cmd="${appDir}/worker/nio_worker_c"
     else
-        # shellcheck disable=SC2034
-        cmd="$JAVA ${worker_jvm_flags} -classpath $CLASSPATH:${worker_jar} ${main_worker_class}"
+      # shellcheck disable=SC2034
+      cmd="$JAVA ${worker_jvm_flags} -classpath $CLASSPATH:${worker_jar} ${main_worker_class}"
     fi
 
   }
@@ -385,6 +392,14 @@ EOT
   }
 
   clean_env() {
+    if [ "${tracing}" == "true" ]; then
+      unset LD_PRELOAD
+      unset EXTRAE_HOME
+      unset EXTRAE_LIB
+      unset EXTRAE_CONFIG_FILE
+      unset EXTRAE_USE_POSIX_CLOCK
+      unset AFTER_EXTRAE_LD_PRELOAD
+    fi
     if [ "$eraseWD" = "true" ]; then
       if [ "$debug" == "true" ]; then
         echo "[persistent_worker.sh] Clean WD ${workingDir}"
@@ -423,7 +438,7 @@ EOT
         fi
       else
         if [ "$debug" == "true" ]; then
-          echo "[persistent_worker.sh] Not Cleaning parent WD because doesn't exists"
+          echo "[persistent_worker.sh] Not Cleaning tmp WD because doesn't exists"
         fi
       fi
     else

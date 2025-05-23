@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,9 +27,10 @@ public class FakeActionOrchestrator implements ActionOrchestrator {
     private final TaskScheduler ts;
 
 
-    public FakeActionOrchestrator(TaskScheduler ts) {
+    public FakeActionOrchestrator() {
         super();
-        this.ts = ts;
+        this.ts = new TaskScheduler(this);
+        ;
     }
 
     // Notification thread
@@ -59,5 +60,12 @@ public class FakeActionOrchestrator implements ActionOrchestrator {
     @Override
     public void actionUpgrade(AllocatableAction action) {
         this.ts.upgradeAction(action);
+    }
+
+    /**
+     * Stops the Fake Orchestrator
+     */
+    public void shutdown() {
+        ts.shutdown();
     }
 }

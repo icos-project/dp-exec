@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package es.bsc.compss.types.data.info;
 
 import es.bsc.compss.types.data.params.CollectionData;
+import es.bsc.compss.types.data.params.DataOwner;
+
 import java.util.concurrent.Semaphore;
 
 
@@ -24,17 +26,18 @@ import java.util.concurrent.Semaphore;
  * Information about a collection and its versions.
  *
  * @see DataInfo
- * @see es.bsc.compss.components.impl.DataInfoProvider registerCollectionAccess method
  */
-public class CollectionInfo extends DataInfo<CollectionData> {
+public class CollectionInfo extends StandardDataInfo<CollectionData> {
 
     /**
      * Creates a new CollectionInfo instance for the given collection.
      *
      * @param data description of the collection related to the info
+     * @param owner owner of the CollectionInfo being created
      */
-    public CollectionInfo(CollectionData data) {
-        super(data);
+    public CollectionInfo(CollectionData data, DataOwner owner) {
+        super(data, owner);
+        owner.registerCollectionData(data.getCollectionId(), this);
     }
 
     /**

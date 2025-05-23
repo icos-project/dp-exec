@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -96,6 +96,14 @@ class TimeOutError(Exception):
 
 class CancelError(Exception):
     """Cancel error exception class."""
+
+
+class StandardOutputError(Exception):
+    """Stdout error exception class."""
+
+
+class StandardErrorError(Exception):
+    """Stderr error exception class."""
 
 
 def task_timed_out(signum: int, frame: typing.Any) -> None:

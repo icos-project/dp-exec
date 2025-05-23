@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -142,7 +142,11 @@ public class GOSAdaptor implements CommAdaptor {
     public void stopSubmittedJobs() {
         for (GOSWorkerNode worker : workerNodes) {
             for (GOSJob job : worker.runningJobs.values()) {
-                job.cancelJob();
+                try {
+                    job.cancelJob();
+                } catch (Exception e) {
+                    LOGGER.warn("Exception cancelling job");
+                }
             }
         }
 

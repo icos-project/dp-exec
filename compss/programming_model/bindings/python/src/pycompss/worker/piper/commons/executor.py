@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import sys
 import time
 import traceback
 import gc
+import contextlib
 from pycompss.util.process.manager import Queue
 from pycompss.util.process.manager import DictProxy
 from pycompss.runtime.management.object_tracker import OT
@@ -75,6 +76,13 @@ from pycompss.streams.components.distro_stream_client import (
     DistroStreamClientHandler,
 )
 
+try:
+    from threadpoolctl import threadpool_limits
+
+    THREADPOOLCTL_AVAILABLE = True
+except ImportError:
+    THREADPOOLCTL_AVAILABLE = False
+
 COMPSS_WITH_DLB = False
 if int(os.getenv("COMPSS_WITH_DLB", 0)) >= 1:
     COMPSS_WITH_DLB = True
@@ -82,6 +90,11 @@ if int(os.getenv("COMPSS_WITH_DLB", 0)) >= 1:
 
 
 HEADER = "*[PYTHON EXECUTOR] "
+EARING = False
+if "EAR_INITIALIZATION_TIME" in os.environ:
+    EAR_INITIALIZATION = int(os.environ["EAR_INITIALIZATION_TIME"])
+else:
+    EAR_INITIALIZATION = 40  # seconds minimum before doing any finalize.
 
 
 def shutdown_handler(
@@ -96,9 +109,16 @@ def shutdown_handler(
     :return: None
     :raises PyCOMPSsException: Received signal.
     """
-    sys.stderr.write("[shutdown_handler] Received SIGTERM\n")
-    sys.stderr.write("SIGNAL: %d\n" % signal)
-    sys.stderr.write("FRAME: %s\n" % str(frame))
+    process_id = os.getpid()
+    process_name = os.environ["EAR_APP_NAME"]
+    sys.stderr.write(
+        f"[shutdown_handler] executor.py Received SIGTERM - "
+        f"PID: {process_id} "
+        f"PROCESS NAME: {process_name} "
+        f"TIMESTAMP: {time.time()}\n"
+    )
+    sys.stderr.write(f"SIGNAL: {signal}\n")
+    sys.stderr.write(f"FRAME: %{str(frame)}\n")
     traceback.print_stack(frame)
     sys.stderr.flush()
     sys.stdout.flush()
@@ -185,7 +205,6 @@ class ExecutorConf:
         "tracing",
         "storage_conf",
         "logger",
-        "logger_cfg",
         "persistent_storage",
         "storage_loggers",
         "stream_backend",
@@ -205,7 +224,6 @@ class ExecutorConf:
         tracing: bool,
         storage_conf: str,
         logger: logging.Logger,
-        logger_cfg: str,
         persistent_storage: bool,
         storage_loggers: typing.List[logging.Logger],
         stream_backend: str,
@@ -224,7 +242,6 @@ class ExecutorConf:
         :param tracing: Enable tracing for the executor.
         :param storage_conf: Storage configuration file.
         :param logger: Main logger.
-        :param logger_cfg: Logger configuration file.
         :param persistent_storage: If persistent storage is enabled
         :param storage_loggers: List of supported storage loggers
                                 (empty if running w/o storage).
@@ -242,7 +259,6 @@ class ExecutorConf:
         self.tracing = tracing
         self.storage_conf = storage_conf
         self.logger = logger
-        self.logger_cfg = logger_cfg
         self.persistent_storage = persistent_storage
         self.storage_loggers = storage_loggers
         self.stream_backend = stream_backend
@@ -263,6 +279,7 @@ class ExecutorConf:
 def executor(
     lock: typing.Any,
     queue: typing.Union[None, Queue],
+    event: typing.Any,
     process_id: int,
     process_name: str,
     pipe: Pipe,
@@ -285,6 +302,9 @@ def executor(
     :param conf: Executor configuration.
     :return: None.
     """
+    global EARING
+    start_time = time.time()
+
     try:
         # First thing to do is to emit the process identifier event
         emit_manual_event_explicit(
@@ -311,7 +331,6 @@ def executor(
             # Reload logger
             (
                 conf.logger,
-                conf.logger_cfg,
                 conf.storage_loggers,
                 _,
             ) = load_loggers(conf.debug, conf.persistent_storage)
@@ -387,19 +406,17 @@ def executor(
                 raise general_exception from general_exception
 
         # Load ear if necessary
-        earing = False
         if conf.ear:
-            earing = True
-
-        if earing:
-            # Initialize streaming
+            # Initialize ear
             if __debug__:
                 logger.debug(
                     "%s[%s] Loading ear",
                     HEADER,
                     str(process_name),
                 )
-            import ear
+            with EventWorker(TRACING_WORKER.executor_load_ear_event):
+                import ear
+            EARING = True
 
         # Connect to Shared memory manager
         if conf.in_cache_queue and conf.out_cache_queue:
@@ -413,7 +430,7 @@ def executor(
             logger.debug("%s[%s] Starting process", HEADER, str(process_name))
 
         # MAIN EXECUTOR LOOP
-        while alive:
+        while alive and not event.is_set():
             # Runtime -> pipe - Read command from pipe
             command = COMPSs.read_pipes()
             if command != "":
@@ -432,7 +449,6 @@ def executor(
                     queue,
                     tracing,
                     logger,
-                    conf.logger_cfg,
                     logger_handlers,
                     logger_level,
                     logger_formatter,
@@ -444,6 +460,14 @@ def executor(
                     conf.cache_ids,
                     conf.cache_profiler,
                 )
+        if __debug__:
+            logger.debug(
+                "%s[%s] Ending process (alive: %s - event: %s)",
+                HEADER,
+                str(process_name),
+                str(alive),
+                str(event.is_set()),
+            )
         # Stop storage
         if storage_conf != "null":
             try:
@@ -475,16 +499,40 @@ def executor(
 
         sys.stdout.flush()
         sys.stderr.flush()
-        if earing:
-            logger.debug("%s[%s] Stopping EAR", HEADER, str(process_name))
-            # Only needed in multiprocessing subprocesses
-            ear.finalize()
+        if EARING:
+            with EventWorker(TRACING_WORKER.executor_finalize_ear_event):
+                elapsed_time = time.time() - start_time
+                if __debug__:
+                    logger.debug(
+                        "%s[%s] Stopping EAR (elapsed %s)",
+                        HEADER,
+                        str(process_name),
+                        str(elapsed_time),
+                    )
+                if elapsed_time < EAR_INITIALIZATION:
+                    logger.debug(
+                        "%s[%s] Waiting to finalize EAR: %s seconds",
+                        HEADER,
+                        str(process_name),
+                        str(elapsed_time),
+                    )
+                    time.sleep(elapsed_time)
+                ear.finalize()
+            EARING = False
+            if __debug__:
+                logger.debug(
+                    "%s[%s] Stopped EAR at %s",
+                    HEADER,
+                    str(process_name),
+                    str(time.time()),
+                )
         if __debug__:
             logger.debug("%s[%s] Exiting process ", HEADER, str(process_name))
         # Send quit message back to the runtime
         pipe.write(TAGS.quit)
         pipe.close()
     except Exception as general_exception:  # pylint: disable=broad-except
+        sys.stderr.write("\nGENERAL EXCEPTION:\n")
         sys.stderr.write(f"\n{str(general_exception)}\n")
         sys.stderr.flush()
         raise general_exception from general_exception
@@ -497,7 +545,6 @@ def process_message(
     queue: typing.Optional[Queue],
     tracing: bool,
     logger: logging.Logger,
-    logger_cfg: str,
     logger_handlers: list,
     logger_level: int,
     logger_formatter: typing.Any,
@@ -517,7 +564,6 @@ def process_message(
     :param queue: Queue where to drop the process exceptions.
     :param tracing: Tracing.
     :param logger: Logger.
-    :param logger_cfg: Logger configuration file.
     :param logger_handlers: Logger handlers.
     :param logger_level: Logger level.
     :param logger_formatter: Logger formatter.
@@ -548,7 +594,6 @@ def process_message(
             queue,
             tracing,
             logger,
-            logger_cfg,
             logger_handlers,
             logger_level,
             logger_formatter,
@@ -586,7 +631,6 @@ def process_task(
     queue: typing.Optional[Queue],
     tracing: bool,
     logger: logging.Logger,
-    logger_cfg: str,
     logger_handlers: list,
     logger_level: int,
     logger_formatter: typing.Any,
@@ -606,7 +650,6 @@ def process_task(
     :param queue: Queue where to drop the process exceptions.
     :param tracing: Tracing.
     :param logger: Logger.
-    :param logger_cfg: Logger configuration file
     :param logger_handlers: Logger handlers.
     :param logger_level: Logger level.
     :param logger_formatter: Logger formatter.
@@ -758,11 +801,12 @@ def process_task(
                     )
 
             # Setup process environment
-            compss_nodes = int(current_line[13])
+            compss_procs = int(current_line[13])
+            compss_nodes = int(current_line[14])
             compss_nodes_names = ",".join(
-                current_line[14 : 14 + compss_nodes]  # noqa: E203
+                current_line[15 : 15 + compss_nodes]  # noqa: E203
             )
-            computing_units = current_line[14 + compss_nodes]
+            computing_units = current_line[15 + compss_nodes]
             if __debug__:
                 logger.debug("Process environment:")
                 logger.debug("\t - Number of nodes: %s", (str(compss_nodes)))
@@ -771,28 +815,34 @@ def process_task(
                     "\t - Number of threads: %s", (str(computing_units))
                 )
             setup_environment(
-                compss_nodes, compss_nodes_names, computing_units
+                compss_nodes, compss_procs, compss_nodes_names, computing_units
             )
 
             # Clean object tracker
             OT.clean_object_tracker(hard_stop=False)
 
-            # Execute task
-            result = execute_task(
-                process_name,
-                storage_conf,
-                current_line[10:],
-                tracing,
-                logger,
-                logger_cfg,
-                (job_out, job_err),
-                False,
-                {},
-                in_cache_queue,
-                out_cache_queue,
-                cache_ids,
-                cache_profiler,
-            )
+            if not COMPSS_WITH_DLB and THREADPOOLCTL_AVAILABLE:
+                thread_context = threadpool_limits(limits=int(computing_units))
+            else:
+                thread_context = contextlib.nullcontext()
+
+            with thread_context:
+                # Execute task
+                result = execute_task(
+                    process_name,
+                    storage_conf,
+                    current_line[10:],
+                    tracing,
+                    logger,
+                    (job_out, job_err),
+                    False,
+                    {},
+                    in_cache_queue,
+                    out_cache_queue,
+                    cache_ids,
+                    cache_profiler,
+                )
+
             # The ignored variable is timed_out
             exit_value, new_types, new_values, _, except_msg = result
 
@@ -905,7 +955,7 @@ def process_task(
                 storage_logger.addHandler(handler)
             i += 1
 
-        with EventInsideWorker(TRACING_WORKER.cleanup_task):
+        with EventInsideWorker(TRACING_WORKER.cleanup_task_event):
             gc.collect()
 
         if __debug__:
@@ -971,6 +1021,8 @@ def bind_cpus(cpus: str, process_name: str, logger: logging.Logger) -> bool:
     :param logger: Logger.
     :return: True if success, False otherwise.
     """
+    import traceback
+
     with EventInsideWorker(TRACING_WORKER.bind_cpus_event):
         if __debug__:
             logger.debug(
@@ -986,7 +1038,7 @@ def bind_cpus(cpus: str, process_name: str, logger: logging.Logger) -> bool:
                 dlb_affinity.setaffinity(cpus_map, os.getpid())
             else:
                 process_affinity.setaffinity(cpus_map)
-        except Exception:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except
             if __debug__:
                 logger.error(
                     "%s[%s] WARNING: could not assign affinity %s",
@@ -994,6 +1046,8 @@ def bind_cpus(cpus: str, process_name: str, logger: logging.Logger) -> bool:
                     str(process_name),
                     str(cpus_map),
                 )
+                traceback.print_exc()
+                logger.error(str(e))
             return False
         # Export only if success
         os.environ["COMPSS_BINDED_CPUS"] = cpus
@@ -1020,7 +1074,10 @@ def bind_gpus(gpus: str, process_name: str, logger: logging.Logger) -> None:
 
 
 def setup_environment(
-    compss_nodes: int, compss_nodes_names: str, computing_units: str
+    compss_nodes: int,
+    compss_ppn: int,
+    compss_nodes_names: str,
+    computing_units: str,
 ) -> None:
     """Set the environment (mainly environment variables).
 
@@ -1031,6 +1088,7 @@ def setup_environment(
     """
     with EventInsideWorker(TRACING_WORKER.setup_environment_event):
         os.environ["COMPSS_NUM_NODES"] = str(compss_nodes)
+        os.environ["COMPSS_NUM_PROCS"] = str(compss_ppn * compss_nodes)
         os.environ["COMPSS_HOSTNAMES"] = compss_nodes_names
         os.environ["COMPSS_NUM_THREADS"] = computing_units
         os.environ["OMP_NUM_THREADS"] = computing_units

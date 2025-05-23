@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -69,6 +69,7 @@ def test_external_mpi_worker_simple_task():
                 "simple",
                 "0",
                 "1",
+                "1",
                 "localhost",
                 "1",
                 "false",
@@ -118,6 +119,7 @@ def test_external_mpi_worker_increment_task():
                 "test_external_mpi",
                 "increment",
                 "0",
+                "1",
                 "1",
                 "localhost",
                 "1",

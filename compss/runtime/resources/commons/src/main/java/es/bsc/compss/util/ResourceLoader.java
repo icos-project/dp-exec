@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -47,7 +47,6 @@ import es.bsc.compss.types.project.jaxb.OSType;
 import es.bsc.compss.types.project.jaxb.PackageType;
 import es.bsc.compss.types.project.jaxb.PriceType;
 import es.bsc.compss.types.project.jaxb.ProcessorType;
-import es.bsc.compss.types.project.jaxb.ServiceType;
 import es.bsc.compss.types.project.jaxb.SoftwareListType;
 import es.bsc.compss.types.project.jaxb.StorageType;
 import es.bsc.compss.types.resources.ClusterMethodResourceDescription;
@@ -61,23 +60,21 @@ import es.bsc.compss.types.resources.MethodWorker;
 import es.bsc.compss.types.resources.ResourcesFile;
 import es.bsc.compss.types.resources.configuration.HTTPConfiguration;
 import es.bsc.compss.types.resources.configuration.MethodConfiguration;
-import es.bsc.compss.types.resources.configuration.ServiceConfiguration;
 import es.bsc.compss.types.resources.description.CloudImageDescription;
 import es.bsc.compss.types.resources.description.CloudInstanceTypeDescription;
-
 import es.bsc.compss.types.resources.exceptions.ResourcesFileValidationException;
+
+import jakarta.xml.bind.JAXBElement;
+import jakarta.xml.bind.JAXBException;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.JAXBException;
 import javax.xml.namespace.QName;
 
 import org.apache.logging.log4j.LogManager;
@@ -975,28 +972,13 @@ public class ResourceLoader {
         clmd.addProcessor(procName, computingUnits, architecture, speed, type, internalMemory, propKey, propValue);
     }
 
-    private static ClusterMethodResourceDescription createComputingCluster(
-        es.bsc.compss.types.project.jaxb.ComputingClusterType clProject,
-        es.bsc.compss.types.resources.jaxb.ComputingClusterType clResources) {
-        ClusterMethodResourceDescription crd = new ClusterMethodResourceDescription();
-
-        List<es.bsc.compss.types.resources.jaxb.ProcessorType> processors;
-        processors = resources.getProcessors(clResources);
-        for (es.bsc.compss.types.resources.jaxb.ProcessorType p : processors) {
-            addProcessorToComputingCluster(crd, p);
-        }
-        return crd;
-    }
-
     private static Map<String, ClusterMethodResourceDescription> createMapComputingCluster(
         ComputingClusterType clProject, es.bsc.compss.types.resources.jaxb.ComputingClusterType clResources) {
 
         Map<String, ClusterMethodResourceDescription> map = new HashMap<>();
         List<ClusterNodeType> clusterNodes = getClusterNodes(clProject);
-        Map<String, es.bsc.compss.types.resources.jaxb.ClusterNodeType> clusterRList;
         es.bsc.compss.types.resources.jaxb.OSType os;
 
-        List<String> softwareNames = project.getSoftwareNames(clProject);
         es.bsc.compss.types.resources.jaxb.ClusterNodeType clusterR;
         for (ClusterNodeType cn : clusterNodes) {
             clusterR = resources.getClusterNode(clResources, cn.getName());
@@ -1006,7 +988,7 @@ public class ResourceLoader {
                 continue;
             }
             ClusterMethodResourceDescription mrd = new ClusterMethodResourceDescription();
-            os = clResources.getOperatingSystem();
+            os = resources.getOperatingSystem(clusterR);
             if (os != null) {
                 mrd.setOperatingSystemType(getOSParameter(os, "Type"));
                 mrd.setOperatingSystemDistribution(getOSParameter(os, "Distribution"));
@@ -1018,8 +1000,11 @@ public class ResourceLoader {
             mrd.setStorageSize(resources.getStorageSize(clusterR));
             mrd.setStorageBW(resources.getStorageBW(clusterR));
             mrd.setStorageType(resources.getStorageType(clusterR));
-            for (String app : softwareNames) {
-                mrd.addApplication(app);
+            List<String> apps = resources.getApplications(clusterR);
+            if (apps != null) {
+                for (String app : apps) {
+                    mrd.addApplication(app);
+                }
             }
 
         }

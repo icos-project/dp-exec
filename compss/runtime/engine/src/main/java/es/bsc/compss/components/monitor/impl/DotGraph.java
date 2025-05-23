@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,16 +19,22 @@ package es.bsc.compss.components.monitor.impl;
 import es.bsc.compss.types.AbstractTask;
 import es.bsc.compss.types.CommutativeGroupTask;
 import es.bsc.compss.types.Task;
-import es.bsc.compss.types.accesses.DataAccessesInfo;
-import es.bsc.compss.types.data.DataAccessId;
-import es.bsc.compss.types.data.DataInstanceId;
+import es.bsc.compss.types.data.EngineDataInstanceId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.ReadingDataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId.WritingDataAccessId;
+import es.bsc.compss.types.data.info.CollectionInfo;
+import es.bsc.compss.types.data.info.DataInfo;
+import es.bsc.compss.types.data.info.FileInfo;
 import es.bsc.compss.types.request.ap.BarrierGroupRequest;
 
 import java.io.BufferedWriter;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 
 public class DotGraph implements GraphHandler {
@@ -64,11 +70,6 @@ public class DotGraph implements GraphHandler {
     }
 
     @Override
-    public void closeCommutativeTasksGroup(CommutativeGroupTask group) {
-        this.gm.closeCommutativeGroup(group.getCommutativeIdentifier().toString());
-    }
-
-    @Override
     public void startTaskAnalysis(Task task) {
         // Set the syncId of the task
         task.setSynchronizationId(this.synchronizationId);
@@ -80,8 +81,18 @@ public class DotGraph implements GraphHandler {
     }
 
     @Override
+    public void createCommutativeGroup(CommutativeGroupTask group) {
+        this.gm.addCommutativeGroup(group.getCommutativeIdentifier().toString());
+    }
+
+    @Override
     public void taskBelongsToCommutativeGroup(Task task, CommutativeGroupTask group) {
         this.gm.addTaskToCommutativeGroup(task, group.getCommutativeIdentifier().toString());
+    }
+
+    @Override
+    public void closeCommutativeGroup(CommutativeGroupTask group) {
+        this.gm.closeCommutativeGroup(group.getCommutativeIdentifier().toString());
     }
 
     @Override
@@ -95,14 +106,14 @@ public class DotGraph implements GraphHandler {
     }
 
     @Override
-    public void addStandandDependency(Task consumer, DataAccessId daId, AbstractTask producer) {
+    public void addStandandDependency(Task consumer, EngineDataAccessId daId, AbstractTask producer) {
         // Retrieve common information
         int dataId = daId.getDataId();
         int dataVersion;
         if (daId.isRead()) {
-            dataVersion = ((DataAccessId.ReadingDataAccessId) daId).getRVersionId();
+            dataVersion = ((ReadingDataAccessId) daId).getRVersionId();
         } else {
-            dataVersion = ((DataAccessId.WritingDataAccessId) daId).getWVersionId();
+            dataVersion = ((WritingDataAccessId) daId).getWVersionId();
         }
 
         if (producer != null && producer != consumer) {
@@ -209,7 +220,7 @@ public class DotGraph implements GraphHandler {
     }
 
     @Override
-    public void mainAccessToData(AbstractTask task, EdgeType edgeType, DataInstanceId accessedData) {
+    public void mainAccessToData(AbstractTask task, EdgeType edgeType, EngineDataInstanceId accessedData) {
         String newSynch = addSynchro(false);
         int dataId = accessedData.getDataId();
         int dataVersion = accessedData.getVersionId();
@@ -251,7 +262,8 @@ public class DotGraph implements GraphHandler {
     }
 
     @Override
-    public void barrier(Map<Integer, DataAccessesInfo> accessesInfo) {
+    public void barrier(Map<String, FileInfo> files, Map<Integer, DataInfo> objects,
+        Map<String, CollectionInfo> collections) {
         // Addition of missing commutative groups to graph
         this.gm.closeCommutativeGroups();
         /**
@@ -260,18 +272,23 @@ public class DotGraph implements GraphHandler {
          */
 
         int oldSync = this.synchronizationId;
-        ;
         String newSyncStr = addSynchro(true);
 
         // Add edges from writers to barrier
         Set<AbstractTask> uniqueWriters = new HashSet<>();
-        for (DataAccessesInfo dai : accessesInfo.values()) {
-            if (dai != null) {
-                // Add data writers
-                List<AbstractTask> dataWriters = dai.getDataWriters();
-                // Add stream writers
+        for (DataInfo di : files.values()) {
+            if (di != null) {
+                List<AbstractTask> dataWriters = di.getDataWriters();
                 uniqueWriters.addAll(dataWriters);
             }
+        }
+        for (DataInfo di : objects.values()) {
+            List<AbstractTask> dataWriters = di.getDataWriters();
+            uniqueWriters.addAll(dataWriters);
+        }
+        for (DataInfo di : collections.values()) {
+            List<AbstractTask> dataWriters = di.getDataWriters();
+            uniqueWriters.addAll(dataWriters);
         }
         for (AbstractTask writer : uniqueWriters) {
             if (writer != null && writer.getSynchronizationId() == oldSync) {

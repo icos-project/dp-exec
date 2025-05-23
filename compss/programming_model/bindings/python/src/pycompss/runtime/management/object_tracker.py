@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ if __debug__:
     LOGGER = logging.getLogger(__name__)
 
 
-class ObjectTracker:
+class ObjectTracker:  # pylint: disable=too-many-instance-attributes
     """Object tracker class.
 
     This class has all needed data structures and functionalities

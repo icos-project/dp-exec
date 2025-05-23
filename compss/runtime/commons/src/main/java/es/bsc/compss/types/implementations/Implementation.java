@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -111,6 +111,11 @@ public abstract class Implementation implements Externalizable {
     public ImplementationDescription<? extends WorkerResourceDescription, ? extends ImplementationDefinition>
         getDescription() {
         return implDescription;
+    }
+
+    public String toJSON() {
+        return "{" + "\"core_id\":" + this.coreId + ",\"impl_id\":" + this.implementationId + ",\"description\":"
+            + (this.implDescription != null ? this.implDescription.toJSON() : "null") + "}";
     }
 
     @Override

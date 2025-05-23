@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@
 package es.bsc.compss.types.parameter.impl;
 
 import es.bsc.compss.api.ParameterMonitor;
+import es.bsc.compss.types.Task;
 import es.bsc.compss.types.annotations.parameter.DataType;
 import es.bsc.compss.types.annotations.parameter.Direction;
 import es.bsc.compss.types.annotations.parameter.StdIOStream;
 import es.bsc.compss.types.data.accessparams.AccessParams;
+import es.bsc.compss.types.data.info.DataInfo;
 
 
 public class BasicTypeParameter extends Parameter implements es.bsc.compss.types.parameter.BasicTypeParameter {
@@ -88,6 +90,28 @@ public class BasicTypeParameter extends Parameter implements es.bsc.compss.types
 
     @Override
     public AccessParams getAccess() {
+        return null;
+    }
+
+    @Override
+    public boolean register(Task task, boolean isConstraining) {
+        task.registerFreeParam(this);
+        return false;
+    }
+
+    @Override
+    public void cancel(Task t) {
+        // Nothing to do
+    }
+
+    @Override
+    public void commit(Task t) {
+        // Nothing to do
+    }
+
+    @Override
+    public DataInfo removeData() {
+        // Nothing to do
         return null;
     }
 

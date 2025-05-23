@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ def test_gat_worker_simple_task():
         "METHOD",
         "test_gat",
         "simple",
+        "1",
         "0",
         "0",
         "1",
@@ -84,6 +85,7 @@ def test_gat_worker_increment_task():
         "METHOD",
         "test_gat",
         "increment",
+        "1",
         "0",
         "0",
         "1",

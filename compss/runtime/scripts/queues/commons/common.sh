@@ -16,7 +16,8 @@ DEFAULT_NVRAM_OPTIONS="none"
 DEFAULT_FORWARD_TIME_LIMIT="true"
 DEFAULT_STORAGE_CONTAINER_IMAGE="false"
 DEFAULT_STORAGE_CPU_AFFINITY="disabled"
-
+DEFAULT_MASTER_PORT_BASE=43000
+DEFAULT_MASTER_PORT_RAND_RANGE=1000
 #---------------------------------------------------
 # ERROR CONSTANTS DECLARATION
 #---------------------------------------------------
@@ -153,7 +154,7 @@ EOT
   if [ -z "${DISABLE_QARG_CPUS_PER_TASK}" ] || [ "${DISABLE_QARG_CPUS_PER_TASK}" == "false" ]; then
     cat <<EOT
     --forward_cpus_per_node=<true|false>    Flag to indicate if number to cpus per node must be forwarded to the worker process.
-					    The number of forwarded cpus will be equal to the cpus_per_node in a worker node and
+                                            The number of forwarded cpus will be equal to the cpus_per_node in a worker node and
                                             equal to the worker_in_master_cpus in a master node.
                                             Default: ${DEFAULT_FORWARD_CPUS_PER_NODE}
 EOT
@@ -167,9 +168,9 @@ EOT
     cat <<EOT
     --job_dependency=<jobID>                Postpone job execution until the job dependency has ended.
                                             Default: ${DEFAULT_DEPENDENCY_JOB}
-    --forward_time_limit=<true|false>	    Forward the queue system time limit to the runtime.
-					    It will stop the application in a controlled way.
-					    Default: ${DEFAULT_FORWARD_TIME_LIMIT}
+    --forward_time_limit=<true|false>       Forward the queue system time limit to the runtime.
+                                            It will stop the application in a controlled way.
+                                            Default: ${DEFAULT_FORWARD_TIME_LIMIT}
     --storage_home=<string>                 Root installation dir of the storage implementation.
                                             Can be defined with the ${STORAGE_HOME_ENV_VAR} environment variable.
                                             Default: ${DEFAULT_STORAGE_HOME}
@@ -413,6 +414,10 @@ get_args() {
             cpus_per_node=${OPTARG//cpus_per_node=/}
             args_pass="$args_pass --$OPTARG"
             ;;
+          worker_in_master_cpus=*)
+            worker_in_master_cpuse=${OPTARG//worker_in_master_cpus=/}
+            args_pass="$args_pass --$OPTARG"
+            ;;
           io_executors=*)
             io_executors=${OPTARG//io_executors=/}
             args_pass="$args_pass --$OPTARG"
@@ -512,6 +517,10 @@ get_args() {
             ;;
           wall_clock_limit=*)
             wcl=${OPTARG//wall_clock_limit=/}
+            args_pass="$args_pass --$OPTARG"
+            ;;
+          master_port=*)
+            master_port=${OPTARG//master_port=/}
             args_pass="$args_pass --$OPTARG"
             ;;
           pre_env_script=*)
@@ -643,6 +652,10 @@ check_args() {
 
   if [ "${cpus_per_node}" -lt "${MINIMUM_CPUS_PER_NODE}" ]; then
     display_error "${ERROR_NUM_CPUS}"
+  fi
+
+  if [ -z "${worker_in_master_cpus}" ]; then
+    worker_in_master_cpus=${DEFAULT_WORKER_IN_MASTER_CPUS}
   fi
 
   if [ -z "${io_executors}" ]; then
@@ -1068,6 +1081,37 @@ add_only_worker_nodes(){
 EOT
 }
 
+add_master_port_generation(){
+  if [ -z "${master_port}" ]; then
+	echo "Generating master_port"
+	rand_num=$RANDOM
+  	offset=$((rand_num % DEFAULT_MASTER_PORT_RAND_RANGE))
+  	master_port=$((DEFAULT_MASTER_PORT_BASE + offset))
+  	cat >> "$TMP_SUBMIT_SCRIPT" << EOT
+  master_port=${master_port}
+  while [ "\$(netstat | grep -v CLOSED | grep -c \${master_port})" -gt 0 ] || [ ! -z "\$(lsof -i :\${master_port})" ]; do
+    echo "Port \${master_port} is already in use or time_wait, incrementing port by 1"
+    master_port=\$((master_port+1))
+  done
+EOT
+  fi
+}
+
+add_only_worker_nodes_with_master_name(){
+ # Host list parsing
+  local env_var_suffix=$1
+  cat >> "$TMP_SUBMIT_SCRIPT" << EOT
+  if [ "${HOSTLIST_CMD}" == "nodes.sh" ]; then
+    source "${COMPSS_HOME}/Runtime/scripts/system/${HOSTLIST_CMD}"
+  else
+    host_list=\$(${HOSTLIST_CMD} \$${ENV_VAR_NODE_LIST}${env_var_suffix} ${HOSTLIST_TREATMENT})
+    export COMPSS_WORKER_NODES=\$(echo \${host_list})
+    export COMPSS_MASTER_NODE=\$(${MASTER_NAME_CMD})
+  fi
+
+EOT
+}
+
 add_launch(){
   if [ "${agents_enabled}" = "enabled" ]; then
     AGENTS_SUFFIX="_agents"
@@ -1080,19 +1124,23 @@ add_launch(){
     cat >> "${TMP_SUBMIT_SCRIPT}" << EOT
 storage_conf=$HOME/.COMPSs/\$${ENV_VAR_JOB_ID}/storage/cfgfiles/storage.properties
 storage_master_node="\${COMPSS_MASTER_NODE}"
+if [ "${worker_in_master_cpus}" -gt "0" ]; then
+  storage_worker_nodes="\${COMPSS_WORKER_NODES} \${COMPSS_MASTER_NODE}"
+else
+  storage_worker_nodes="\${COMPSS_WORKER_NODES}"
+fi
 
 # The storage_init.sh can put environment variables in the temporary file which will be sourced afterwards
 variables_to_be_sourced=\$(mktemp -p \$PWD .storage_env_XXXXXXXX)
 
-${storage_home}/scripts/storage_init.sh \$${ENV_VAR_JOB_ID} "\${COMPSS_MASTER_NODE}" "\${storage_master_node}" "\${COMPSS_WORKER_NODES}" "${network}" "${storage_props}" "\${variables_to_be_sourced}" "${storage_container_image}" "${storage_cpu_affinity}"
-
+${storage_home}/scripts/storage_init.sh \$${ENV_VAR_JOB_ID} "\${COMPSS_MASTER_NODE}" "\${storage_master_node}" "\${storage_worker_nodes}" "${network}" "${storage_props}" "\${variables_to_be_sourced}" "${storage_container_image}" "${storage_cpu_affinity}"
 ${COMPSS_HOME}/Runtime/scripts/user/launch_compss${AGENTS_SUFFIX} ${AGENTS_HIERARCHY} --master_node="\${COMPSS_MASTER_NODE}" --worker_nodes="\${COMPSS_WORKER_NODES}" --node_memory=${node_memory} --node_storage_bandwidth=${node_storage_bandwidth} --storage_conf=\${storage_conf} --env_script=\${variables_to_be_sourced} ${args_pass}
 
 if [ -f "\${variables_to_be_sourced}" ]; then
      rm "\${variables_to_be_sourced}"
 fi
 
-${storage_home}/scripts/storage_stop.sh \$${ENV_VAR_JOB_ID} "\${COMPSS_MASTER_NODE}" "\${storage_master_node}" "\${COMPSS_WORKER_NODES}" ${network} ${storage_props}
+${storage_home}/scripts/storage_stop.sh \$${ENV_VAR_JOB_ID} "\${COMPSS_MASTER_NODE}" "\${storage_master_node}" "\${storage_worker_nodes}" ${network} ${storage_props}
 
 EOT
   else

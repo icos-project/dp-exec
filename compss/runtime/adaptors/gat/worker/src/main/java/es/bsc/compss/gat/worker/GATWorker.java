@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -259,9 +259,7 @@ public class GATWorker implements InvocationContext {
                 return genImplemenationDefinition(new BinaryDefinition(args, argPosition, null), debug, args,
                     argPosition + BinaryDefinition.NUM_PARAMS);
             case MPI:
-                // todo: nm: do we need this?
-                String[] container = new String[3];
-                return genImplemenationDefinition(new MPIDefinition(args, argPosition, container), debug, args,
+                return genImplemenationDefinition(new MPIDefinition(args, argPosition), debug, args,
                     argPosition + MPIDefinition.NUM_PARAMS);
             case COMPSs:
                 return genImplemenationDefinition(new COMPSsDefinition(args, argPosition), debug, args,

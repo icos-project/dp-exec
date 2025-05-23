@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -648,8 +648,24 @@ public class NIOAdaptor extends NIOAgent implements CommAdaptor {
         }
     }
 
+    protected void updateCopiedData(LogicalData tgtData, DataLocation actualLocation) {
+        switch (actualLocation.getType()) {
+            case PERSISTENT:
+                LOGGER.debug("Persistent location no need to update location for " + tgtData.getName());
+                break;
+            case BINDING:
+            case PRIVATE:
+                LOGGER.debug("Adding location:" + actualLocation.getPath() + " to " + tgtData.getName());
+                tgtData.addLocation(actualLocation);
+                break;
+            case SHARED:
+                LOGGER.debug("Shared location no need to update location for " + tgtData.getName());
+                break;
+        }
+    }
+
     @Override
-    public void copiedData(int transferGroupId) {
+    public final void copiedData(int transferGroupId) {
         LOGGER.debug("Notifying copied Data to master");
         TransferGroup group = PENDING_TRANSFER_GROUPS.remove(transferGroupId);
         if (group == null) {
@@ -669,19 +685,7 @@ public class NIOAdaptor extends NIOAgent implements CommAdaptor {
                 LogicalData tgtData = c.getTargetData();
                 if (tgtData != null) {
                     LOGGER.debug("targetData is not null");
-                    switch (actualLocation.getType()) {
-                        case PERSISTENT:
-                            LOGGER.debug("Persistent location no need to update location for " + tgtData.getName());
-                            break;
-                        case BINDING:
-                        case PRIVATE:
-                            LOGGER.debug("Adding location:" + actualLocation.getPath() + " to " + tgtData.getName());
-                            tgtData.addLocation(actualLocation);
-                            break;
-                        case SHARED:
-                            LOGGER.debug("Shared location no need to update location for " + tgtData.getName());
-                            break;
-                    }
+                    updateCopiedData(tgtData, actualLocation);
                     LOGGER.debug("Locations for " + tgtData.getName() + " are: " + tgtData.getURIs());
 
                 } else {

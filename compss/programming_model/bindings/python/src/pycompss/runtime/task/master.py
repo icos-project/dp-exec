@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -893,12 +893,13 @@ class TaskMaster:
             processes_per_node = 1
         self.decorator_arguments.processes_per_node = processes_per_node
         if processes_per_node > 1:
-            # Check processes per node
-            self.validate_processes_per_node(
-                computing_nodes, processes_per_node
-            )
-            computing_nodes = int(computing_nodes / processes_per_node)
-            self.decorator_arguments.computing_nodes = computing_nodes
+            if self.core_element.impl_type != IMPLEMENTATION_TYPES.multi_node:
+                # Check processes per node
+                self.validate_processes_per_node(
+                    computing_nodes, processes_per_node
+                )
+                computing_nodes = int(computing_nodes / processes_per_node)
+                self.decorator_arguments.computing_nodes = computing_nodes
 
         # Deal with on_failure
         if LABELS.on_failure in kwargs:
@@ -982,12 +983,12 @@ class TaskMaster:
                 ):
                     if arg_name not in self.parameters:
                         real_arg_name = get_kwarg_name(arg_name)
-                        self.parameters[
-                            real_arg_name
-                        ] = self.build_parameter_object(
-                            real_arg_name,
-                            default_value,
-                            code_strings=code_strings,
+                        self.parameters[real_arg_name] = (
+                            self.build_parameter_object(
+                                real_arg_name,
+                                default_value,
+                                code_strings=code_strings,
+                            )
                         )
 
         # Process variadic and keyword arguments
@@ -1338,6 +1339,8 @@ class TaskMaster:
         if pre_defined_core_element:
             # Core element has already been created in an upper decorator
             # (e.g. @implements and @compss)
+            if __debug__:
+                logger.debug("Predefined core element.")
             _ce_signature = self.core_element.get_ce_signature()
             _impl_constraints = self.core_element.get_impl_constraints()
             _impl_type = self.core_element.get_impl_type()
@@ -1375,6 +1378,9 @@ class TaskMaster:
                     set_impl_type_args(impl_type_args + _impl_type_args[1:])
                 else:
                     set_impl_type_args(impl_type_args)
+            elif _impl_type == IMPLEMENTATION_TYPES.multi_node:
+                if _impl_type_args:
+                    set_impl_type_args(impl_type_args + _impl_type_args)
             if not _impl_local:
                 set_impl_local(impl_local)
             if not _impl_io:

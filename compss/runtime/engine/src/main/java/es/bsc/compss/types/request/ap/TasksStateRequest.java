@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 package es.bsc.compss.types.request.ap;
 
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.types.Application;
 import es.bsc.compss.types.tracing.TraceEvent;
@@ -28,7 +26,7 @@ import java.util.concurrent.Semaphore;
 /**
  * The TasksStateRequests class represents a request to obtain the progress of all the applications that are running.
  */
-public class TasksStateRequest extends APRequest {
+public class TasksStateRequest implements APRequest {
 
     private final Semaphore sem;
     private String response;
@@ -62,7 +60,7 @@ public class TasksStateRequest extends APRequest {
     }
 
     @Override
-    public void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td) {
+    public void process(AccessProcessor ap, TaskDispatcher td) {
         this.response = Application.getTaskStateRequest();
         this.sem.release();
     }

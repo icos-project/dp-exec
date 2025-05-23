@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ import es.bsc.compss.types.TaskGroup;
 import es.bsc.compss.types.TaskState;
 import es.bsc.compss.types.annotations.parameter.Direction;
 import es.bsc.compss.types.annotations.parameter.OnFailure;
-import es.bsc.compss.types.data.DataAccessId;
+import es.bsc.compss.types.data.accessid.EngineDataAccessId;
 import es.bsc.compss.types.implementations.Implementation;
 import es.bsc.compss.types.job.Job;
 import es.bsc.compss.types.job.JobEndStatus;
@@ -406,9 +406,9 @@ public class ExecutionAction extends AllocatableAction implements JobListener<Pa
         if (p.isPotentialDependency()) {
             DependencyParameter dp = (DependencyParameter) p;
             if (dp.getDirection() == Direction.COMMUTATIVE) {
-                DataAccessId placeHolder = dp.getDataAccessId();
+                EngineDataAccessId placeHolder = dp.getDataAccessId();
                 CommutativeGroupTask cgt = this.getTask().getCommutativeGroup(placeHolder.getDataId());
-                DataAccessId performedAccess = cgt.nextAccess();
+                EngineDataAccessId performedAccess = cgt.nextAccess();
                 dp.setDataAccessId(performedAccess);
             }
 
@@ -462,10 +462,6 @@ public class ExecutionAction extends AllocatableAction implements JobListener<Pa
 
     @Override
     protected void doAbort() {
-        ResourceScheduler target = this.getAssignedResource();
-        if (target != null) {
-            this.getExecutingResources().remove(target);
-        }
         TaskMonitor monitor = this.task.getTaskMonitor();
         monitor.onAbortedExecution();
     }
@@ -534,7 +530,7 @@ public class ExecutionAction extends AllocatableAction implements JobListener<Pa
     }
 
     @Override
-    protected void doCanceled() {
+    protected boolean doCanceled() {
         // Cancelled log message
         String taskName = this.task.getTaskDescription().getName();
         ErrorManager.warn("Task " + this.task.getId() + "(Action: " + this.getId() + ") with name " + taskName
@@ -544,6 +540,11 @@ public class ExecutionAction extends AllocatableAction implements JobListener<Pa
         this.task.decreaseExecutionCount();
         this.task.setStatus(TaskState.CANCELED);
         this.ap.notifyTaskEnd(this.task);
+        if (this.task.getOnFailure().equals(OnFailure.IGNORE)) {
+            return false;
+        } else {
+            return true;
+        }
     }
 
     @Override
@@ -581,9 +582,9 @@ public class ExecutionAction extends AllocatableAction implements JobListener<Pa
         List<Implementation> coreImpls = ce.getImplementations();
 
         int coreImplsSize = coreImpls.size();
-        Implementation[] impls = (Implementation[]) new Implementation[coreImplsSize];
+        Implementation[] impls = new Implementation[coreImplsSize];
         for (int i = 0; i < coreImplsSize; ++i) {
-            impls[i] = (Implementation) coreImpls.get(i);
+            impls[i] = coreImpls.get(i);
         }
         return impls;
     }

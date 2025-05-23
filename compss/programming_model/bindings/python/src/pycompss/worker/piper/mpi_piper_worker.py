@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ def compss_persistent_worker(config: PiperWorkerConfiguration) -> None:
 
     persistent_storage = config.storage_conf != "null"
 
-    logger, _, _, _ = load_loggers(config.debug, persistent_storage)
+    logger, _, _ = load_loggers(config.debug, persistent_storage)
 
     if __debug__:
         logger.debug(
@@ -271,9 +271,7 @@ def compss_persistent_executor(
 
     persistent_storage = config.storage_conf != "null"
 
-    logger, logger_cfg, storage_loggers, _ = load_loggers(
-        config.debug, persistent_storage
-    )
+    logger, storage_loggers, _ = load_loggers(config.debug, persistent_storage)
 
     cache_profiler = False
     if config.cache_profiler.lower() == "true":
@@ -297,7 +295,6 @@ def compss_persistent_executor(
         tracing,
         config.storage_conf,
         logger,
-        logger_cfg,
         persistent_storage,
         storage_loggers,
         config.stream_backend,
@@ -309,7 +306,13 @@ def compss_persistent_executor(
         cache_profiler,
     )
     executor(
-        None, None, executor_id, executor_name, config.pipes[RANK - 1], conf
+        None,
+        None,
+        None,
+        executor_id,
+        executor_name,
+        config.pipes[RANK - 1],
+        conf,
     )
 
     if persistent_storage:
@@ -348,7 +351,7 @@ def main() -> None:
     worker_conf.update_params(sys.argv)
 
     persistent_storage = worker_conf.storage_conf != "null"
-    logger, _, _, log_dir = load_loggers(worker_conf.debug, persistent_storage)
+    logger, _, log_dir = load_loggers(worker_conf.debug, persistent_storage)
     analysis_dir = GLOBALS.get_analysis_directory()
 
     cache_profiler = False

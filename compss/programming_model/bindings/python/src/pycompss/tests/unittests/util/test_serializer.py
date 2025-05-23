@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
-#  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+#  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,12 +24,12 @@ import dill
 import numpy
 import numpy as np
 
+from pycompss.tests.outlog import create_logger
+
 if sys.version_info >= (3, 0):
     import pickle as pickle  # Uses _pickle if available
 else:
     import cPickle as pickle  # noqa
-
-from pycompss.tests.outlog import create_logger
 
 LOGGER = create_logger()
 

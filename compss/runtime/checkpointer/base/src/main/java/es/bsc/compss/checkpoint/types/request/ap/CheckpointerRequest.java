@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ package es.bsc.compss.checkpoint.types.request.ap;
 
 import es.bsc.compss.checkpoint.CheckpointRecord;
 import es.bsc.compss.components.impl.AccessProcessor;
-import es.bsc.compss.components.impl.DataInfoProvider;
-import es.bsc.compss.components.impl.TaskAnalyser;
 import es.bsc.compss.components.impl.TaskDispatcher;
 import es.bsc.compss.types.request.ap.APRequest;
 import es.bsc.compss.types.request.exceptions.ShutdownException;
@@ -29,7 +27,7 @@ import es.bsc.compss.util.Tracer;
 import es.bsc.compss.worker.COMPSsException;
 
 
-public abstract class CheckpointerRequest extends APRequest {
+public abstract class CheckpointerRequest implements APRequest {
 
     private final CheckpointRecord cp;
 
@@ -51,13 +49,12 @@ public abstract class CheckpointerRequest extends APRequest {
     public abstract TraceEvent getCheckpointEvent();
 
     @Override
-    public void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td)
-        throws ShutdownException, COMPSsException {
+    public void process(AccessProcessor ap, TaskDispatcher td) throws ShutdownException, COMPSsException {
         if (Tracer.isActivated()) {
             Tracer.emitEvent(getCheckpointEvent());
         }
         try {
-            process(ap, ta, dip, td, this.cp);
+            process(ap, td, this.cp);
         } finally {
             if (Tracer.isActivated()) {
                 Tracer.emitEventEnd(TraceEventType.CHECKPOINT_EVENTS_TYPE);
@@ -65,6 +62,6 @@ public abstract class CheckpointerRequest extends APRequest {
         }
     }
 
-    public abstract void process(AccessProcessor ap, TaskAnalyser ta, DataInfoProvider dip, TaskDispatcher td,
-        CheckpointRecord cp) throws ShutdownException, COMPSsException;
+    public abstract void process(AccessProcessor ap, TaskDispatcher td, CheckpointRecord cp)
+        throws ShutdownException, COMPSsException;
 }

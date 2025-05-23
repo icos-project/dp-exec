@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -286,7 +286,17 @@ public class GraphGenerator {
     }
 
     /**
-     * Adds a task in a commutative grpu of to the graph.
+     * Creates a Commutative Group in the graph.
+     *
+     * @param identifier identifier of the commutative group
+     */
+    public void addCommutativeGroup(String identifier) {
+        List<Task> tasks = new LinkedList<>();
+        openCommutativeGroups.put(identifier, tasks);
+    }
+
+    /**
+     * Adds a task in a commutative group of to the graph.
      *
      * @param task New task.
      * @param identifier identifier of the commutative group
@@ -294,10 +304,21 @@ public class GraphGenerator {
     public void addTaskToCommutativeGroup(Task task, String identifier) {
         List<Task> tasks = openCommutativeGroups.get(identifier);
         if (tasks == null) {
+            // This should never happen
             tasks = new LinkedList<>();
             openCommutativeGroups.put(identifier, tasks);
         }
         tasks.add(task);
+    }
+
+    /**
+     * Closes the given commutative group in the graph.
+     *
+     * @param identifier name of the group to close
+     */
+    public void closeCommutativeGroup(String identifier) {
+        List<Task> tasks = openCommutativeGroups.remove(identifier);
+        printCommutativeGroup(identifier, tasks);
     }
 
     /**
@@ -473,16 +494,6 @@ public class GraphGenerator {
             printCommutativeGroup(identifier, tasks);
         }
         openCommutativeGroups.clear();
-    }
-
-    /**
-     * Closes the given commutative group in the graph.
-     *
-     * @param identifier name of the group to close
-     */
-    public void closeCommutativeGroup(String identifier) {
-        List<Task> tasks = openCommutativeGroups.remove(identifier);
-        printCommutativeGroup(identifier, tasks);
     }
 
     private void printCommutativeGroup(String identifier, List<Task> tasks) {

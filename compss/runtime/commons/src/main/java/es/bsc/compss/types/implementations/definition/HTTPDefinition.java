@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -123,6 +123,12 @@ public class HTTPDefinition implements ImplementationDefinition {
     @Override
     public TaskType getTaskType() {
         return TaskType.HTTP;
+    }
+
+    @Override
+    public String toJSON() {
+        return "{\"service_name\":\"" + serviceName + "\"," + "\"resource\":\"" + this.resource + "\","
+            + "\"request\":\"" + this.request + "\"" + "}";
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ public class PrintCurrentGraphRequest extends TDRequest {
         try {
             PriorityQueue<AbstractTask> pending = new PriorityQueue<>();
 
-            Set<Task> tasks = new HashSet<>();
+            Set<AbstractTask> tasks = new HashSet<>();
             String prefix = "  ";
 
             // Header options
@@ -121,7 +121,9 @@ public class PrintCurrentGraphRequest extends TDRequest {
                     boolean done = false;
                     while (!done) {
                         try {
-                            tmpList.addAll(t.getSuccessors());
+                            synchronized (t) {
+                                tmpList.addAll(t.getSuccessors());
+                            }
                             done = true;
                         } catch (ConcurrentModificationException cme) {
                             tmpList.clear();
@@ -158,7 +160,9 @@ public class PrintCurrentGraphRequest extends TDRequest {
                     boolean done = false;
                     while (!done) {
                         try {
-                            tmpList.addAll(t.getSuccessors());
+                            synchronized (t) {
+                                tmpList.addAll(t.getSuccessors());
+                            }
                             done = true;
                         } catch (ConcurrentModificationException cme) {
                             tmpList.clear();
@@ -203,7 +207,9 @@ public class PrintCurrentGraphRequest extends TDRequest {
                         boolean done = false;
                         while (!done) {
                             try {
-                                tmpList.addAll(t.getSuccessors());
+                                synchronized (t) {
+                                    tmpList.addAll(t.getSuccessors());
+                                }
                                 done = true;
                             } catch (ConcurrentModificationException cme) {
                                 tmpList.clear();
@@ -238,7 +244,9 @@ public class PrintCurrentGraphRequest extends TDRequest {
                         boolean done = false;
                         while (!done) {
                             try {
-                                tmpList.addAll(t.getSuccessors());
+                                synchronized (t) {
+                                    tmpList.addAll(t.getSuccessors());
+                                }
                                 done = true;
                             } catch (ConcurrentModificationException cme) {
                                 tmpList.clear();
@@ -279,12 +287,14 @@ public class PrintCurrentGraphRequest extends TDRequest {
                 if (!tasks.contains(t)) {
                     this.graph.write(prefix + prefix + t.getDotDescription());
                     this.graph.newLine();
-                    tasks.add((Task) t);
+                    tasks.add(t);
                     LinkedList<AbstractTask> tmpList = new LinkedList<>();
                     boolean done = false;
                     while (!done) {
                         try {
-                            tmpList.addAll(t.getSuccessors());
+                            synchronized (t) {
+                                tmpList.addAll(t.getSuccessors());
+                            }
                             done = true;
                         } catch (ConcurrentModificationException cme) {
                             tmpList.clear();
@@ -299,12 +309,14 @@ public class PrintCurrentGraphRequest extends TDRequest {
             this.graph.newLine();
 
             /* Write edges *************************************************** */
-            for (Task t : tasks) {
+            for (AbstractTask t : tasks) {
                 Set<AbstractTask> successors = new HashSet<>();
                 boolean done = false;
                 while (!done) {
                     try {
-                        successors.addAll(t.getSuccessors());
+                        synchronized (t) {
+                            successors.addAll(t.getSuccessors());
+                        }
                         done = true;
                     } catch (ConcurrentModificationException cme) {
                         successors.clear();

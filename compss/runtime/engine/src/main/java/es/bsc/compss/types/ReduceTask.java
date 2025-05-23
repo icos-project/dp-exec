@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,8 +29,10 @@ import es.bsc.compss.types.colors.ColorNode;
 import es.bsc.compss.types.data.location.DataLocation;
 import es.bsc.compss.types.data.location.ProtocolType;
 import es.bsc.compss.types.parameter.impl.CollectiveParameter;
+import es.bsc.compss.types.parameter.impl.DependencyParameter;
 import es.bsc.compss.types.parameter.impl.FileParameter;
 import es.bsc.compss.types.parameter.impl.Parameter;
+import es.bsc.compss.types.request.exceptions.ValueUnawareRuntimeException;
 import es.bsc.compss.types.uri.SimpleURI;
 import es.bsc.compss.util.ErrorManager;
 import es.bsc.compss.util.ResourceManager;
@@ -281,8 +283,7 @@ public class ReduceTask extends Task {
         this.intermediateCollections.clear();
     }
 
-    @Override
-    public List<Parameter> getUnusedIntermediateParameters() {
+    private List<Parameter> getUnusedIntermediateParameters() {
         this.partialsIn.addAll(this.partialsOut);
         return partialsIn;
     }
@@ -303,8 +304,7 @@ public class ReduceTask extends Task {
         return color.getFillColor();
     }
 
-    @Override
-    public List<Parameter> getParameterDataToRemove() {
+    private List<Parameter> getParameterDataToRemove() {
         List<Parameter> dataToRemove = new LinkedList<>();
         dataToRemove.addAll(getIntermediateInParameters());
         dataToRemove.addAll(getIntermediateOutParameters());
@@ -312,8 +312,7 @@ public class ReduceTask extends Task {
         return dataToRemove;
     }
 
-    @Override
-    public List<Parameter> getIntermediateParameters() {
+    private List<Parameter> getIntermediateParameters() {
         List<Parameter> interParams = new LinkedList<>();
         // The order matters
         interParams.addAll(getIntermediateOutParameters());
@@ -323,4 +322,36 @@ public class ReduceTask extends Task {
         return interParams;
     }
 
+    @Override
+    protected boolean registerTask() {
+        boolean hasEdge = super.registerTask();
+        // Register Intermediate parameters
+        for (Parameter p : this.getIntermediateParameters()) {
+            p.register(this, false);
+        }
+
+        // Marking intermediate parameters for deletion
+        for (Parameter p : this.getParameterDataToRemove()) {
+            try {
+                p.removeData();
+            } catch (ValueUnawareRuntimeException e) {
+                // If not existing, the parameter was already removed. No need to do anything
+            }
+        }
+        return hasEdge;
+    }
+
+    protected void commitParams() {
+        super.commitParams();
+        for (Parameter param : this.getUnusedIntermediateParameters()) {
+            param.commit(this);
+        }
+    }
+
+    protected void cancelParams() {
+        super.cancelParams();
+        for (Parameter param : this.getUnusedIntermediateParameters()) {
+            param.cancel(this);
+        }
+    }
 }

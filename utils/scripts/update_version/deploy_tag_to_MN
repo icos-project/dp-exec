@@ -23,13 +23,14 @@
 
   # Set parameters
   version=$1
-  buildFolder="mn"
-  buildScript="buildMN"
+  buildFolder="mn5"
+  buildScript="buildMN5"
   user=compss
-  endpoint=mn1.bsc.es
-  modules_folder="/apps/modules/modulefiles/tools/COMPSs/"
+  endpoint=glogin2.bsc.es
+  modules_folder="/apps/GPP/modulefiles/applications/COMPSs/"
+  install_folder="/apps/GPP/COMPSs/"
   # Call generic script
-  ./deploy_tag_to_SC "${version}" ${buildFolder} ${buildScript} ${user} ${endpoint} "${modules_folder}"
+  ./deploy_tag_to_SC "${version}" ${buildFolder} ${buildScript} ${user} ${endpoint} "${modules_folder}" "${install_folder}"
 
   # END
   exit 0

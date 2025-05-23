@@ -1,5 +1,5 @@
 /*
- *  Copyright 2002-2023 Barcelona Supercomputing Center (www.bsc.es)
+ *  Copyright 2002-2025 Barcelona Supercomputing Center (www.bsc.es)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -61,6 +61,8 @@ import es.bsc.compss.util.SchedulingOptimizer;
 import es.bsc.compss.util.Tracer;
 import es.bsc.compss.worker.COMPSsException;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -83,8 +85,12 @@ public class TaskScheduler {
     // Logger
     protected static final Logger LOGGER = LogManager.getLogger(Loggers.TS_COMP);
 
+    // Data Provenance logger
+    private static final Logger DP_LOGGER = LogManager.getLogger(Loggers.DATA_PROVENANCE);
+    private static final boolean DP_ENABLED = Boolean.parseBoolean(System.getProperty(COMPSsConstants.DATA_PROVENANCE));
+
     // Reference to action orchestrator (Task Dispatcher)
-    private ActionOrchestrator orchestrator;
+    private final ActionOrchestrator orchestrator;
 
     // Map of available workers and its resource schedulers
     protected final WorkersMap workers;
@@ -107,11 +113,43 @@ public class TaskScheduler {
 
     protected static final boolean DEBUG = LOGGER.isDebugEnabled();
 
+    /**
+     * Constructs the scheduler.
+     *
+     * @param schedFQN Fully Qualified name of the class implementing the scheduler
+     * @param orchestrator Element orchestrating the execution of actions
+     * @return a TaskScheduler of the specified class
+     * @throws ClassNotFoundException the schedFQN has not been loaded on the classpath
+     * @throws IllegalAccessException if this Constructor object is enforcing Java language access control and the
+     *     underlying constructor is inaccessible.
+     * @throws IllegalArgumentException if the number of actual and formal parameters differ; if an unwrapping
+     *     conversion for primitive arguments fails; or if, after possible unwrapping, a parameter value cannot be
+     *     converted to the corresponding formal parameter type by a method invocation conversion; if this constructor
+     *     pertains to an enum type.
+     * @throws InstantiationException if the class that declares the underlying constructor represents an abstract
+     *     class.
+     * @throws InvocationTargetException if the underlying constructor throws an exception.
+     * @throws ExceptionInInitializerError if the initialization provoked by this method fails.
+     */
+    public static TaskScheduler constructScheduler(String schedFQN, ActionOrchestrator orchestrator)
+        throws ClassNotFoundException, InvocationTargetException, InstantiationException, IllegalAccessException,
+        IllegalArgumentException, ExceptionInInitializerError {
+        Class<?> schedClass = Class.forName(schedFQN);
+        Constructor<?> schedCnstr = schedClass.getDeclaredConstructors()[0];
+        TaskScheduler scheduler = (TaskScheduler) schedCnstr.newInstance(orchestrator);
+        if (DEBUG) {
+            LOGGER.debug("Loaded scheduler " + scheduler);
+        }
+        return scheduler;
+    }
 
     /**
      * Constructs a new Task Scheduler.
+     *
+     * @param orchestrator element ordering the execution of actions
      */
-    public TaskScheduler() {
+    public TaskScheduler(ActionOrchestrator orchestrator) {
+        this.orchestrator = orchestrator;
         String enableAdaptStr = System.getProperty(COMPSsConstants.EXTERNAL_ADAPTATION);
         if (enableAdaptStr != null && !enableAdaptStr.isEmpty()) {
             this.externalAdaptation = Boolean.parseBoolean(enableAdaptStr);
@@ -156,15 +194,6 @@ public class TaskScheduler {
     }
 
     /**
-     * Assigns the action orchestrator to this scheduler.
-     *
-     * @param orchestrator Associated Action Orchestrator.
-     */
-    public final void setOrchestrator(ActionOrchestrator orchestrator) {
-        this.orchestrator = orchestrator;
-    }
-
-    /**
      * Returns the Action Orchestrator assigned to this scheduler.
      *
      * @return The Action Orchestrator assigned to this scheduler.
@@ -187,12 +216,16 @@ public class TaskScheduler {
         try {
             updateState();
             this.jsm.write();
+            if (DP_ENABLED) {
+                // Write application execution metrics to dataprovenance.log file
+                this.jsm.writeDataProvenance(DP_LOGGER);
+            }
         } catch (Exception e) {
             LOGGER.error(e);
         }
     }
-    
-    protected void customSchedulerShutdown(){
+
+    protected void customSchedulerShutdown() {
         // Do nothing. Overriden if necessary by Task Scheduler extension.
     }
 
@@ -203,6 +236,7 @@ public class TaskScheduler {
      * *********************************************************************************************************
      * *********************************************************************************************************
      */
+
     /**
      * Generates the Resource Optimizer for the scheduler.
      *
@@ -286,6 +320,7 @@ public class TaskScheduler {
      * *********************************************************************************************************
      * *********************************************************************************************************
      */
+
     /**
      * New Core Elements have been detected; the Task Scheduler needs to be notified to modify any internal structure
      * using that information.
@@ -340,8 +375,8 @@ public class TaskScheduler {
         ro.coreElementsUpdated();
         customCoreElementsUpdated();
     }
-    
-    public void customCoreElementsUpdated(){
+
+    public void customCoreElementsUpdated() {
         // Do nothing. Overriden if necessary by Task Scheduler extension.
     }
 
@@ -350,7 +385,7 @@ public class TaskScheduler {
      *
      * @param action AllocatableAction.
      */
-    protected void addToReady(AllocatableAction action) {
+    private void addToReady(AllocatableAction action) {
         LOGGER.debug("[TaskScheduler] Add action " + action + " to ready count");
         Integer coreId = action.getCoreId();
         if (coreId != null) {
@@ -366,7 +401,7 @@ public class TaskScheduler {
      *
      * @param action AllocatableAction.
      */
-    protected void removeFromReady(AllocatableAction action) {
+    private void removeFromReady(AllocatableAction action) {
         LOGGER.info("[TaskScheduler] Remove action " + action + " from ready count");
         if (action.getImplementations() != null) {
             if (action.getImplementations().length > 0) {
@@ -386,11 +421,30 @@ public class TaskScheduler {
      *
      * @param action Blocked AllocatableAction.
      */
-    public void addToBlocked(AllocatableAction action) {
+    public final void addToBlocked(AllocatableAction action) {
         LOGGER.warn("[TaskScheduler] Blocked Action: " + action);
         this.blockedActions.addAction(action);
+        if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
+            removeFromReady(action);
+        }
     }
 
+    /**
+     * Removes from the blocked list all the actions compatible with the resource.
+     *
+     * @param resource resource that could allocate the blocked tasks
+     * @return list all the actions compatible with the resource.
+     */
+    protected final List<AllocatableAction> removeCompatibleFromBlocked(Worker resource) {
+        List<AllocatableAction> unblockedActions = this.blockedActions.removeAllCompatibleActions(resource);
+
+        for (AllocatableAction action : unblockedActions) {
+            if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
+                addToReady(action);
+            }
+        }
+        return unblockedActions;
+    }
     /*
      * *********************************************************************************************************
      * *********************************************************************************************************
@@ -398,12 +452,13 @@ public class TaskScheduler {
      * *********************************************************************************************************
      * *********************************************************************************************************
      */
+
     /**
      * Introduces a new action in the Scheduler system. The method should place the action in a resource hurriedly.
      *
      * @param action Action to be scheduled.
      */
-    public void newAllocatableAction(AllocatableAction action) {
+    public final void newAllocatableAction(AllocatableAction action) {
         LOGGER.info("[TaskScheduler] Registering new AllocatableAction " + action);
         if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
             addToReady(action);
@@ -417,9 +472,6 @@ public class TaskScheduler {
             scheduleAction(action, actionScore);
             tryToLaunch(action);
         } catch (BlockedActionException bae) {
-            if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
-                removeFromReady(action);
-            }
             addToBlocked(action);
         }
     }
@@ -435,7 +487,7 @@ public class TaskScheduler {
 
     /**
      * Registers an action as running and releases its stream dependencies.
-     * 
+     *
      * @param action Running AllocatableAction.
      */
     public final void actionRunning(AllocatableAction action) {
@@ -447,19 +499,51 @@ public class TaskScheduler {
             for (AllocatableAction fAction : freeActions) {
                 addToReady(fAction);
             }
+            handleDependencyFreeActionsAndBlock(freeActions, new LinkedList<>(), action.getAssignedResource());
+        }
+    }
 
-            // Schedule data free actions
-            List<AllocatableAction> blockedCandidates = new LinkedList<>();
-            // Actions can only be scheduled and those that remain blocked must be added to the blockedCandidates list
-            // and those that remain unassigned must be added to the unassigned list
-            handleDependencyFreeActions(freeActions, new LinkedList<>(), blockedCandidates,
-                action.getAssignedResource());
-            for (AllocatableAction aa : blockedCandidates) {
-                if (!aa.hasDataPredecessors() && !aa.hasStreamProducers()) {
-                    removeFromReady(aa);
-                }
-                addToBlocked(aa);
-            }
+    private List<AllocatableAction> actionFinished(AllocatableAction action) {
+        // Mark action as finished
+        removeFromReady(action);
+
+        ResourceScheduler<WorkerResourceDescription> resource;
+        resource = (ResourceScheduler<WorkerResourceDescription>) action.getAssignedResource();
+        List<AllocatableAction> resourceFree;
+        try {
+            resourceFree = action.unschedule();
+        } catch (UnassignedActionException | ActionNotFoundException e) {
+            resourceFree = new LinkedList<>();
+        }
+
+        // We update the worker load
+        workerLoadUpdate(resource);
+        return resourceFree;
+    }
+
+    private <T extends WorkerResourceDescription> void handleReadinessAndDependencyFreeActions(
+        List<AllocatableAction> dataFreeActions,
+        List<AllocatableAction> resourceFreeActions,
+        ResourceScheduler<T> resource) {
+
+        for (AllocatableAction dataFreeAction : dataFreeActions) {
+            addToReady(dataFreeAction);
+        }
+        handleDependencyFreeActionsAndBlock(dataFreeActions, resourceFreeActions, resource);
+    }
+
+    private <T extends WorkerResourceDescription> void handleDependencyFreeActionsAndBlock(
+        List<AllocatableAction> dataFreeActions,
+        List<AllocatableAction> resourceFreeActions,
+        ResourceScheduler<T> resource) {
+        // Schedule data free actions
+        List<AllocatableAction> blockedCandidates = new LinkedList<>();
+        // Actions can only be scheduled and those that remain blocked must be added to the blockedCandidates list
+        // and those that remain unassigned must be added to the unassigned list
+
+        handleDependencyFreeActions(dataFreeActions, resourceFreeActions, blockedCandidates, resource);
+        for (AllocatableAction aa : blockedCandidates) {
+            addToBlocked(aa);
         }
     }
 
@@ -468,88 +552,31 @@ public class TaskScheduler {
      *
      * @param action Action that has finished
      */
-    @SuppressWarnings("unchecked")
     public final void actionCompleted(AllocatableAction action) {
         LOGGER.info("[TaskScheduler] Action completed " + action);
-        // Mark action as finished
-        removeFromReady(action);
-        
-        ResourceScheduler<WorkerResourceDescription> resource;
-        resource = (ResourceScheduler<WorkerResourceDescription>) action.getAssignedResource();
-        List<AllocatableAction> resourceFree;
-        try {
-            resourceFree = resource.unscheduleAction(action);
-        } catch (ActionNotFoundException ex) {
-            // Once the action starts running should cannot be moved from the resource
-            resourceFree = new LinkedList<>();
-        }
+        ResourceScheduler<? extends WorkerResourceDescription> resource = action.getAssignedResource();
+        List<AllocatableAction> resourceFreeActions = actionFinished(action);
 
-        action.relaseResourcesAndLaunchBlockedActions();
-        
-        // We update the worker load
-        workerLoadUpdate(resource);
-        
         // Get the data free actions and mark them as ready
         List<AllocatableAction> dataFreeActions = action.completed();
-        for (AllocatableAction dataFreeAction : dataFreeActions) {
-            addToReady(dataFreeAction);
-        }
 
-        // Schedule data free actions
-        List<AllocatableAction> blockedCandidates = new LinkedList<>();
-        // Actions can only be scheduled and those that remain blocked must be added to the blockedCandidates list
-        // and those that remain unassigned must be added to the unassigned list
-
-        handleDependencyFreeActions(dataFreeActions, resourceFree, blockedCandidates, resource);
-        for (AllocatableAction aa : blockedCandidates) {
-            if (!aa.hasDataPredecessors() && !aa.hasStreamProducers()) {
-                removeFromReady(aa);
-            }
-            addToBlocked(aa);
-        }
+        handleReadinessAndDependencyFreeActions(dataFreeActions, resourceFreeActions, resource);
     }
 
     /**
      * Registers a COMPSs exception to the group of the task.
-     * 
+     *
      * @param action Action raising the error.
      */
-    @SuppressWarnings("unchecked")
     public final void exceptionOnAction(AllocatableAction action, COMPSsException e) {
         LOGGER.info("[TaskScheduler] Exception on action " + action);
-        // Mark action as finished
-        removeFromReady(action);
-
-        ResourceScheduler<WorkerResourceDescription> resource;
-        resource = (ResourceScheduler<WorkerResourceDescription>) action.getAssignedResource();
-        List<AllocatableAction> resourceFree;
-        try {
-            resourceFree = resource.unscheduleAction(action);
-        } catch (ActionNotFoundException ex) {
-            // Once the action starts running should cannot be moved from the resource
-            resourceFree = new LinkedList<>();
-        }
+        ResourceScheduler<? extends WorkerResourceDescription> resource = action.getAssignedResource();
+        List<AllocatableAction> resourceFreeActions = actionFinished(action);
 
         // Get the data free actions and mark them as ready
         List<AllocatableAction> dataFreeActions = action.exception(e);
-        for (AllocatableAction dataFreeAction : dataFreeActions) {
-            addToReady(dataFreeAction);
-        }
 
-        // We update the worker load
-        workerLoadUpdate(resource);
-
-        // Schedule data free actions
-        List<AllocatableAction> blockedCandidates = new LinkedList<>();
-        // Actions can only be scheduled and those that remain blocked must be added to the blockedCandidates list
-        // and those that remain unassigned must be added to the unassigned list
-        handleDependencyFreeActions(dataFreeActions, resourceFree, blockedCandidates, resource);
-        for (AllocatableAction aa : blockedCandidates) {
-            if (!aa.hasDataPredecessors() && !aa.hasStreamProducers()) {
-                removeFromReady(aa);
-            }
-            addToBlocked(aa);
-        }
+        handleReadinessAndDependencyFreeActions(dataFreeActions, resourceFreeActions, resource);
     }
 
     /**
@@ -573,6 +600,7 @@ public class TaskScheduler {
         // Process the action error (removes the assigned resource)
         try {
             if (action.isCancelling()) {
+                LOGGER.debug("[TaskScheduler] Action " + action + "is being cancelled. Invoking cancel...");
                 action.cancel();
             } else {
                 action.error();
@@ -585,11 +613,8 @@ public class TaskScheduler {
                 // Free all the dependent tasks
                 for (AllocatableAction failedAction : action.failed()) {
                     try {
-                        ResourceScheduler<?> failedResource = failedAction.getAssignedResource();
-                        if (failedResource != null) {
-                            resourceFree.addAll(failedResource.unscheduleAction(failedAction));
-                        }
-                    } catch (ActionNotFoundException anfe) {
+                        resourceFree.addAll(failedAction.unschedule());
+                    } catch (ActionNotFoundException | UnassignedActionException anfe) {
                         // Once the action starts running should cannot be moved from the resource
                     }
                 }
@@ -604,8 +629,8 @@ public class TaskScheduler {
 
         // We free the current task and get the free actions from the resource
         try {
-            resourceFree.addAll(resource.unscheduleAction(action));
-        } catch (ActionNotFoundException anfe) {
+            resourceFree.addAll(action.unschedule());
+        } catch (ActionNotFoundException | UnassignedActionException anfe) {
             // Once the action starts running should cannot be moved from the resource
         }
 
@@ -619,16 +644,8 @@ public class TaskScheduler {
 
         }
 
-        List<AllocatableAction> blockedCandidates = new LinkedList<>();
-
         if (action.getOnFailure() != OnFailure.CANCEL_SUCCESSORS && !action.isCancelled()) {
-            handleDependencyFreeActions(dataFreeActions, resourceFree, blockedCandidates, resource);
-            for (AllocatableAction aa : blockedCandidates) {
-                if (!aa.hasDataPredecessors() && !aa.hasStreamProducers()) {
-                    removeFromReady(aa);
-                }
-                addToBlocked(aa);
-            }
+            handleDependencyFreeActionsAndBlock(dataFreeActions, resourceFree, resource);
         }
     }
 
@@ -639,10 +656,9 @@ public class TaskScheduler {
         } catch (InvalidSchedulingException ise) {
             // Unschedule the task from that resource
             List<AllocatableAction> resourceFree = new LinkedList<>();
-            ResourceScheduler<?> resource = action.getAssignedResource();
             try {
-                resourceFree.addAll(resource.unscheduleAction(action));
-            } catch (ActionNotFoundException ex1) {
+                resourceFree.addAll(action.unschedule());
+            } catch (ActionNotFoundException | UnassignedActionException ex1) {
                 // Not possible
             }
             Score actionScore = generateActionScore(action);
@@ -771,9 +787,10 @@ public class TaskScheduler {
      * *********************************************************************************************************
      * *********************************************************************************************************
      */
+
     /**
      * Updates the worker information.
-     * 
+     *
      * @param <T> WorkerResourceDescription
      * @param worker Worker to update.
      * @param rs Resource Update information.
@@ -852,7 +869,7 @@ public class TaskScheduler {
                 busyWorkerResources(worker, modification);
                 break;
             default:
-            
+
         }
     }
 
@@ -886,7 +903,7 @@ public class TaskScheduler {
 
     /**
      * Marks a resource update as completed.
-     * 
+     *
      * @param <T> WorkerResourceDescription.
      * @param worker Worker to update.
      * @param modification Completed modification.
@@ -911,7 +928,6 @@ public class TaskScheduler {
     }
 
 
-
     private <T extends WorkerResourceDescription> void increasedWorkerResources(ResourceScheduler<T> worker,
         ResourceUpdate<T> modification) {
         if (worker.myWorker == Comm.getAppHost()) {
@@ -924,13 +940,7 @@ public class TaskScheduler {
         } else {
             // Inspect blocked actions to be freed
             List<AllocatableAction> unblockedActions;
-            unblockedActions = this.blockedActions.removeAllCompatibleActions(worker.getResource());
-
-            for (AllocatableAction action : unblockedActions) {
-                if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
-                    addToReady(action);
-                }
-            }
+            unblockedActions = this.removeCompatibleFromBlocked(worker.getResource());
 
             // Update worker features
             LinkedList<AllocatableAction> blockedActions = new LinkedList<>();
@@ -952,9 +962,6 @@ public class TaskScheduler {
         LinkedList<AllocatableAction> blockedActions = new LinkedList<>();
         this.workerFeaturesUpdate(worker, modification.getModification(), unblockedActions, blockedActions);
         for (AllocatableAction action : blockedActions) {
-            if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
-                removeFromReady(action);
-            }
             addToBlocked(action);
         }
 
@@ -965,7 +972,7 @@ public class TaskScheduler {
             workerStopped((ResourceScheduler<WorkerResourceDescription>) worker);
             StopWorkerAction action;
             action = new StopWorkerAction(generateSchedulingInformation(worker, null, null), worker,
-                     this, modification);
+                this, modification);
             try {
                 action.schedule((ResourceScheduler<WorkerResourceDescription>) worker, (Score) null);
                 action.tryToLaunch();
@@ -981,29 +988,16 @@ public class TaskScheduler {
 
     private <T extends WorkerResourceDescription> void idleWorkerResources(ResourceScheduler<T> worker,
         IdleResources<T> modification) {
-        
-        LOGGER.debug("Releasing idle resources in the worker  " + worker.getName());
 
-        worker.getResource().endTask(modification.getModification());
-        worker.tryToLaunchBlockedActions();
+        LOGGER.debug("Releasing idle resources in the worker  " + worker.getName());
+        worker.idleResources(modification.getModification());
 
         // We update the worker load
         workerLoadUpdate(worker);
 
-        // Schedule data free actions
-        List<AllocatableAction> blockedCandidates = new LinkedList<>();
         List<AllocatableAction> dataFreeActions = new LinkedList<>();
         List<AllocatableAction> resourceFree = new LinkedList<>();
-        // Actions can only be scheduled and those that remain blocked must be added to the blockedCandidates list
-        // and those that remain unassigned must be added to the unassigned list
-
-        handleDependencyFreeActions(dataFreeActions, resourceFree, blockedCandidates, worker);
-        for (AllocatableAction aa : blockedCandidates) {
-            if (!aa.hasDataPredecessors() && !aa.hasStreamProducers()) {
-                removeFromReady(aa);
-            }
-            addToBlocked(aa);
-        }
+        handleDependencyFreeActionsAndBlock(dataFreeActions, resourceFree, worker);
     }
 
     /**
@@ -1036,13 +1030,12 @@ public class TaskScheduler {
             }
         }
 
-        // We convert PriorityQueue -> List to obtain a shallow copy
-        List<AllocatableAction> blockedOnResource = new ArrayList<>(resource.getBlockedActions());
-        for (AllocatableAction action : blockedOnResource) {
+        List<AllocatableAction> hostedActions = resource.getHostedActions();
+        for (AllocatableAction action : hostedActions) {
             action.abortExecution();
             try {
-                resource.unscheduleAction(action);
-            } catch (ActionNotFoundException ex) {
+                action.unschedule();
+            } catch (ActionNotFoundException | UnassignedActionException ex) {
                 // Task was already moved from the worker. Do nothing!
                 continue;
             }
@@ -1052,31 +1045,6 @@ public class TaskScheduler {
                 scheduleAction(action, actionScore);
                 tryToLaunch(action);
             } catch (BlockedActionException bae) {
-                if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
-                    removeFromReady(action);
-                }
-                addToBlocked(action);
-            }
-        }
-
-        AllocatableAction[] runningOnResource = resource.getHostedActions();
-        for (AllocatableAction action : runningOnResource) {
-            action.abortExecution();
-            try {
-                resource.unscheduleAction(action);
-            } catch (ActionNotFoundException ex) {
-                // Task was already moved from the worker. Do nothing!
-                continue;
-            }
-
-            Score actionScore = generateActionScore(action);
-            try {
-                scheduleAction(action, actionScore);
-                tryToLaunch(action);
-            } catch (BlockedActionException bae) {
-                if (!action.hasDataPredecessors()) {
-                    removeFromReady(action);
-                }
                 addToBlocked(action);
             }
         }
@@ -1088,34 +1056,24 @@ public class TaskScheduler {
     }
 
     private <T extends WorkerResourceDescription> void workerStoppedToBeRestarted(Worker<T> worker,
-            ResourceScheduler<T> resource) {
+        ResourceScheduler<T> resource) {
 
         // remove the worker before re-scheduling its actions so the actions aren't
         //  assigned to the same worker before the worker is re-initialized
         removeResource(resource);
 
-        // We convert PriorityQueue -> List to obtain a shallow copy
-        List<AllocatableAction> blockedOnResource = new ArrayList<>(resource.getBlockedActions());
-        AllocatableAction[] runningOnResource = resource.getHostedActions();
+        List<AllocatableAction> hostedOnResource = resource.getHostedActions();
 
-        for (AllocatableAction action : blockedOnResource) {
+        for (AllocatableAction action : hostedOnResource) {
             action.abortExecution();
             try {
-                resource.unscheduleAction(action);
-            } catch (ActionNotFoundException ex) {
+                action.unschedule();
+            } catch (ActionNotFoundException | UnassignedActionException ex) {
                 // Task was already moved from the worker. Do nothing!
             }
 
         }
-        for (AllocatableAction action : runningOnResource) {
-            action.abortExecution();
-            try {
-                resource.unscheduleAction(action);
-            } catch (ActionNotFoundException ex) {
-                // Task was already moved from the worker. Do nothing!
-            }
 
-        }
         resource.setRemoved(false);
         resource.getResource().startingNode();
         startWorker(resource);
@@ -1125,32 +1083,15 @@ public class TaskScheduler {
             this.workers.put(worker, resource);
         }
 
-        for (AllocatableAction action : blockedOnResource) {
+        for (AllocatableAction action : hostedOnResource) {
             Score actionScore = generateActionScore(action);
             try {
                 scheduleAction(action, actionScore);
                 tryToLaunch(action);
             } catch (BlockedActionException bae) {
-                if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
-                    removeFromReady(action);
-                }
                 addToBlocked(action);
             }
         }
-
-        for (AllocatableAction action : runningOnResource) {
-            Score actionScore = generateActionScore(action);
-            try {
-                scheduleAction(action, actionScore);
-                tryToLaunch(action);
-            } catch (BlockedActionException bae) {
-                if (!action.hasDataPredecessors()) {
-                    removeFromReady(action);
-                }
-                addToBlocked(action);
-            }
-        }
-
     }
 
     /**
@@ -1203,18 +1144,10 @@ public class TaskScheduler {
             ObjectValue<AllocatableAction> obj = sortedCompatibleActions.poll();
             Score actionScore = obj.getScore();
             AllocatableAction action = obj.getObject();
-
-            if (!action.hasDataPredecessors() && !action.hasStreamProducers()) {
-                addToReady(action);
-            }
-
             try {
                 scheduleAction(action, actionScore);
                 tryToLaunch(action);
             } catch (BlockedActionException bae) {
-                if (!action.hasDataPredecessors()) {
-                    removeFromReady(action);
-                }
                 addToBlocked(action);
             }
         }
@@ -1227,6 +1160,7 @@ public class TaskScheduler {
      * *********************************************************************************************************
      * *********************************************************************************************************
      */
+
     /**
      * Returns the ResourceSchedulers assigned to all available workers.
      *
@@ -1267,7 +1201,7 @@ public class TaskScheduler {
         LOGGER.info("[TaskScheduler] Get Hosted actions on worker " + worker.getName());
         ResourceScheduler<T> ui = workers.get(worker);
         if (ui != null) {
-            return ui.getHostedActions();
+            return ui.getRunningActions();
         } else {
             return new AllocatableAction[0];
         }
@@ -1300,7 +1234,8 @@ public class TaskScheduler {
         return new LinkedList<>();
     }
 
-    /** Upgrade the action because another action of the same multi-node group has been scheduled
+    /**
+     * Upgrade the action because another action of the same multi-node group has been scheduled
      * and it should be prioritised to avoid possible deadlocks.
      *
      * @param action Action to upgrade
@@ -1319,7 +1254,7 @@ public class TaskScheduler {
 
         @SuppressWarnings("unchecked")
         ResourceScheduler<WorkerResourceDescription> workerRS =
-                (ResourceScheduler<WorkerResourceDescription>) resource;
+            (ResourceScheduler<WorkerResourceDescription>) resource;
 
         Worker<WorkerResourceDescription> workerResource = workerRS.getResource();
         this.workers.remove(workerResource);
@@ -1353,6 +1288,7 @@ public class TaskScheduler {
      * *********************************************************************************************************
      * *********************************************************************************************************
      */
+
     /**
      * Returns the current workload state.
      *
@@ -1387,7 +1323,7 @@ public class TaskScheduler {
                 }
             }
 
-            AllocatableAction[] runningActions = ui.getHostedActions();
+            AllocatableAction[] runningActions = ui.getRunningActions();
             long now = System.currentTimeMillis();
             for (AllocatableAction running : runningActions) {
                 if (running.getImplementations().length > 0) {
@@ -1415,6 +1351,7 @@ public class TaskScheduler {
      * *********************************************************************************************************
      * *********************************************************************************************************
      */
+
     /**
      * Prints the task summary on a given logger {@code logger}.
      *
@@ -1514,7 +1451,7 @@ public class TaskScheduler {
 
         ResourceScheduler<T> ui = workers.get(worker);
         if (ui != null) {
-            AllocatableAction[] hostedActions = ui.getHostedActions();
+            AllocatableAction[] hostedActions = ui.getRunningActions();
             for (AllocatableAction action : hostedActions) {
                 runningActions.append(prefix);
                 runningActions.append("<Action>").append(action.toString()).append("</Action>");
@@ -1620,8 +1557,8 @@ public class TaskScheduler {
          * cpJSON); } for (CloudInstanceTypeDescription citd : cp.getAllTypes()) { JSONObject citdJSON =
          * jsm.getJSONForCloudInstanceTypeDescription(cp, citd); if (citdJSON == null) { citdJSON = new JSONObject();
          * cpJSON.put(citd.getName(), citdJSON); } } }
-         * 
-         * 
+         *
+         *
          * int coreCount = this.offVMsProfiles.length; // Aggregate offVMs as initial Profile values for (int coreId =
          * 0; coreId < coreCount; coreId++) { int implCount = this.offVMsProfiles[coreId].length; for (int implId = 0;
          * implId < implCount; implId++) { accumulateImplementationJSON(coreId, implId, offVMsProfiles[coreId][implId]);
@@ -1631,7 +1568,7 @@ public class TaskScheduler {
 
     /**
      * Updates the ResourceScheduler with the loaded JSON information.
-     * 
+     *
      * @param rs ResourceScheduler to update.
      */
     public void updateResourceJSON(ResourceScheduler<? extends WorkerResourceDescription> rs) {
@@ -1654,7 +1591,7 @@ public class TaskScheduler {
 
     /**
      * Returns whether the external adaptation is enabled or not.
-     * 
+     *
      * @return {@literal true} if the external adaptation is enabled, {@literal false} otherwise.
      */
     public boolean isExternalAdaptationEnabled() {
@@ -1663,7 +1600,7 @@ public class TaskScheduler {
 
     /**
      * Returns the JSON representation of a cloud instance type.
-     * 
+     *
      * @param cp Cloud provider.
      * @param ctid Cloud instance type description.
      * @return The JSON representation of the given cloud instance type.
@@ -1674,7 +1611,7 @@ public class TaskScheduler {
 
     /**
      * Returns the JSON information of all the implementations.
-     * 
+     *
      * @return A JSONObject containing all the information about the implementations.
      */
     public JSONObject getJSONForImplementations() {
@@ -1682,7 +1619,9 @@ public class TaskScheduler {
     }
 
 
-    /** Get next resource to execute a distributed task.
+    /**
+     * Get next resource to execute a distributed task.
+     *
      * @param coreId CoreId of the task
      * @return resource to execute the task.
      */
@@ -1696,7 +1635,7 @@ public class TaskScheduler {
         return res;
     }
 
-    protected class WorkersMap {
+    private class WorkersMap {
 
         private final Map<Resource,
             ResourceScheduler<? extends WorkerResourceDescription>> map;
